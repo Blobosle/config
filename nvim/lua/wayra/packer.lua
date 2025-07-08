@@ -68,5 +68,22 @@ return require('packer').startup(function(use)
         end,
     }
 
-    use 'saghen/blink.cmp'
+    use {
+        'saghen/blink.cmp',
+    }
+
+    use {
+        "https://git.sr.ht/~whynothugo/lsp_lines.nvim",
+        config = function()
+            require("lsp_lines").setup()
+        end,
+    }
+
+    use {
+        "yioneko/nvim-yati",
+        tag = "*",
+        requires = "nvim-treesitter/nvim-treesitter"
+    }
+
+    use 'mbbill/undotree'
 end)

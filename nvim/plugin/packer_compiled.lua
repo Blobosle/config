@@ -85,10 +85,20 @@ _G.packer_plugins = {
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/bamboo.nvim",
     url = "https://github.com/ribru17/bamboo.nvim"
   },
+  ["blink.cmp"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/blink.cmp",
+    url = "https://github.com/saghen/blink.cmp"
+  },
   everforest = {
     loaded = true,
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/everforest",
     url = "https://github.com/sainnhe/everforest"
+  },
+  ["godbolt.nvim"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/godbolt.nvim",
+    url = "https://github.com/p00f/godbolt.nvim"
   },
   gruvbox = {
     loaded = true,
@@ -115,20 +125,30 @@ _G.packer_plugins = {
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/memento.nvim",
     url = "https://github.com/gaborvecsei/memento.nvim"
   },
-  ["mintex.nvim"] = {
-    loaded = true,
-    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/mintex.nvim",
-    url = "https://github.com/Blobosle/mintex.nvim"
-  },
   ["neoscroll.nvim"] = {
     loaded = true,
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/neoscroll.nvim",
     url = "https://github.com/karb94/neoscroll.nvim"
   },
+  ["nvim-ghost.nvim"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/nvim-ghost.nvim",
+    url = "https://github.com/subnut/nvim-ghost.nvim"
+  },
   ["nvim-lspconfig"] = {
     loaded = true,
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/nvim-lspconfig",
     url = "https://github.com/neovim/nvim-lspconfig"
+  },
+  ["nvim-treesitter"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/nvim-treesitter",
+    url = "https://github.com/nvim-treesitter/nvim-treesitter"
+  },
+  ["onedark.nvim"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/onedark.nvim",
+    url = "https://github.com/navarasu/onedark.nvim"
   },
   ["packer.nvim"] = {
     loaded = true,
@@ -140,6 +160,12 @@ _G.packer_plugins = {
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/plenary.nvim",
     url = "https://github.com/nvim-lua/plenary.nvim"
   },
+  ["render-markdown.nvim"] = {
+    config = { "\27LJ\2\n=\0\0\3\0\3\0\0066\0\0\0'\2\1\0B\0\2\0029\0\2\0B\0\1\1K\0\1\0\nsetup\20render-markdown\frequire\0" },
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/render-markdown.nvim",
+    url = "https://github.com/MeanderingProgrammer/render-markdown.nvim"
+  },
   ["telescope-fzy-native.nvim"] = {
     loaded = true,
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/telescope-fzy-native.nvim",
@@ -149,6 +175,11 @@ _G.packer_plugins = {
     loaded = true,
     path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/telescope.nvim",
     url = "https://github.com/nvim-telescope/telescope.nvim"
+  },
+  ["transparent.nvim"] = {
+    loaded = true,
+    path = "/Users/benjaminlobos/.local/share/nvim/site/pack/packer/start/transparent.nvim",
+    url = "https://github.com/xiyaowong/transparent.nvim"
   },
   ["vim-pink-moon"] = {
     loaded = true,
@@ -162,6 +193,10 @@ time([[Defining packer_plugins]], false)
 time([[Config for Comment.nvim]], true)
 try_loadstring("\27LJ\2\n5\0\0\3\0\3\0\0066\0\0\0'\2\1\0B\0\2\0029\0\2\0B\0\1\1K\0\1\0\nsetup\fComment\frequire\0", "config", "Comment.nvim")
 time([[Config for Comment.nvim]], false)
+-- Config for: render-markdown.nvim
+time([[Config for render-markdown.nvim]], true)
+try_loadstring("\27LJ\2\n=\0\0\3\0\3\0\0066\0\0\0'\2\1\0B\0\2\0029\0\2\0B\0\1\1K\0\1\0\nsetup\20render-markdown\frequire\0", "config", "render-markdown.nvim")
+time([[Config for render-markdown.nvim]], false)
 
 _G._packer.inside_compile = false
 if _G._packer.needs_bufread == true then
