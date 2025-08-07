@@ -1,6 +1,9 @@
 -- Leader key mapping
 vim.g.mapleader = ' '
 
+-- Sets relative numbers for Netrw
+vim.g.netrw_bufsettings = "noma nomod nonu nobl nowrap ro rnu"
+
 -- Copy and paste functionality
 vim.cmd('vnoremap <C-c> "+y')
 vim.cmd('map <C-v> "+p')

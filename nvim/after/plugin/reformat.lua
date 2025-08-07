@@ -43,7 +43,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 -- Adds comments on abbreviation
 vim.api.nvim_create_autocmd("FileType", {
-  pattern = {"c", "cpp"},
+  pattern = {"c", "cpp", "javascript", "javascriptreact", "typescript", "typescriptreact"},
   callback = function()
     vim.cmd('inoreabbrev com /**/<Esc>hi')
   end,

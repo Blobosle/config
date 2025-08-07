@@ -18,6 +18,7 @@ vim.cmd("set shiftwidth=4")
 vim.cmd("set softtabstop=4")
 
 vim.cmd("set list")
+vim.cmd("set ignorecase smartcase")
 vim.cmd("set listchars=tab:>.,trail:•")
 
 vim.cmd("colorscheme " .. _G.color)
@@ -30,3 +31,4 @@ vim.opt.guicursor = ""
 vim.opt.swapfile = false
 vim.opt.signcolumn = "yes"
 vim.opt.termguicolors = true
+
