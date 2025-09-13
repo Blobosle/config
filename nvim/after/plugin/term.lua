@@ -22,8 +22,8 @@ vim.api.nvim_exec([[
 -- -- Custom highlight group for terminal windows
 vim.cmd('hi TermNormal guifg=white ctermbg=0 ctermfg=white')
 -- vim.cmd('hi TermNormal guibg=#1e1e1e guifg=white ctermbg=0 ctermfg=white')
---
--- -- Autocommand to set winhighlight in terminal windows
+
+-- Autocommand to set winhighlight in terminal windows
 vim.api.nvim_exec([[
   augroup TermColorschemeToggle
     autocmd!

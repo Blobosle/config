@@ -73,7 +73,7 @@ return require('packer').startup(function(use)
     }
 
     use {
-        "https://git.sr.ht/~whynothugo/lsp_lines.nvim",
+        "https://git.sr.ht/~whynothugo/trueines.nvim",
         config = function()
             require("lsp_lines").setup()
         end,
@@ -86,4 +86,6 @@ return require('packer').startup(function(use)
     }
 
     use 'mbbill/undotree'
+
+    use 'github/copilot.vim'
 end)
