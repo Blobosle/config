@@ -1,18 +1,3 @@
-local builtin = require("telescope.builtin")
-
--- Only load in current directory
-
-_G.cd_and_open_telescope = function()
-    local original_dir = vim.fn.getcwd()
-    vim.cmd('cd %:p:h')
-    builtin.find_files()
-
-    vim.cmd('autocmd User TelescopePreviewerLoaded ++once lua vim.cmd("cd ' .. original_dir .. '")')
-end
-
--- Remap to open telescope
-vim.api.nvim_set_keymap('n', '<C-f>', ':lua cd_and_open_telescope()<CR>', { noremap = true, silent = true })
-
 -- Remap to open function and objects table lookup
 vim.keymap.set('n', '<leader><leader>', function()
     require('telescope.builtin').lsp_document_symbols({

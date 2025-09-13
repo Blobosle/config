@@ -1,11 +1,7 @@
-require("wayra")
+require("config.lazy")
+require("user")
 
 _G.color = "onedark"
-
--- gruvbox
--- bamboo
--- pink-moon
--- PaperColor
 
 vim.cmd("set number")
 vim.cmd("set linebreak")
@@ -22,7 +18,6 @@ vim.cmd("set ignorecase smartcase")
 vim.cmd("set listchars=tab:>.,trail:•")
 
 vim.cmd("colorscheme " .. _G.color)
--- vim.cmd("syntax off")
 
 vim.opt.hlsearch = true
 vim.opt.incsearch = true
@@ -31,3 +26,5 @@ vim.opt.guicursor = ""
 vim.opt.swapfile = false
 vim.opt.signcolumn = "yes"
 vim.opt.termguicolors = true
+vim.opt.splitright = true
+
