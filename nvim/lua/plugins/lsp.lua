@@ -12,7 +12,7 @@ return {
         },
         opts = {
             automatic_enable = false,
-            ensure_installed = { "clangd", },
+            ensure_installed = { "clangd", "ts_ls", "tailwindcss", "cmake", "protols"},
         },
     },
     {
@@ -24,8 +24,9 @@ return {
             local lsp = require("lspconfig")
             lsp.clangd.setup({})
             lsp.ts_ls.setup({})
-            lsp.texlab.setup({})
             lsp.tailwindcss.setup({})
+            lsp.cmake.setup({})
+            lsp.protols.setup({})
         end,
     },
 }

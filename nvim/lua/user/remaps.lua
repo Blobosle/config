@@ -67,4 +67,3 @@ vim.api.nvim_create_autocmd("User", {
 -- Custom escape for nested neovim instanc
 vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', {noremap = true, silent = true})
 
-

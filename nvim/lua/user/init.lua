@@ -7,6 +7,7 @@ for _, m in ipairs({
     "indent",
     "func-telescope",
     "cmd",
+    "latex",
 }) do
     require("user." .. m)
 end
