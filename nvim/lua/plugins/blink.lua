@@ -3,6 +3,7 @@ return {
         "saghen/blink.cmp",
         event = "InsertEnter",
         main = "blink.cmp",
+        enabled = true,
         opts = {
             keymap = {
                 preset = "default",
@@ -14,6 +15,9 @@ return {
             completion = {
                 documentation = {
                     auto_show = false,
+                },
+                menu = {
+                    auto_show = function(ctx, items) return vim.bo.filetype == 'c' end,
                 },
             },
             sources = {
