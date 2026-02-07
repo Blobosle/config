@@ -21,7 +21,7 @@ return {
             desc = "Telescope find files (here)"
         },
 
-        { "<leader>g", function()
+        { "<C-g>", function()
                 require('telescope').extensions.live_grep_args.live_grep_args({
                     cwd = buf_dir(),
                 })

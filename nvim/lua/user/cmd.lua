@@ -18,7 +18,6 @@ vim.api.nvim_create_autocmd('CmdwinEnter', {
     end,
 })
 
-
 -- STREAMER (ANSI-capable via nvim_open_term) ----------------------------
 local function sh_stream_in_split(cmd, opts)
     opts = opts or {}
@@ -31,6 +30,22 @@ local function sh_stream_in_split(cmd, opts)
 
     cmd = cmd:gsub("^%s*[!$]", "")
 
+
+    local function infer_netrw_cwd()
+        local win = vim.api.nvim_get_current_win()
+        local buf = vim.api.nvim_win_get_buf(win)
+        if vim.bo[buf].filetype == "netrw" then
+
+            local dir = vim.b[buf].netrw_curdir or vim.g.netrw_curdir
+            if type(dir) == "string" and dir ~= "" then
+                return dir
+            end
+        end
+        return nil
+    end
+    local inferred_netrw_cwd = (cwd == nil) and infer_netrw_cwd() or nil
+    cwd = cwd or inferred_netrw_cwd
+
     vim.cmd("belowright new")
     if height and tonumber(height) then
         vim.cmd(("resize %d"):format(tonumber(height)))
@@ -38,6 +53,12 @@ local function sh_stream_in_split(cmd, opts)
 
     local win = vim.api.nvim_get_current_win()
     local buf = vim.api.nvim_get_current_buf()
+
+
+    if inferred_netrw_cwd then
+
+        vim.cmd("lcd " .. vim.fn.fnameescape(inferred_netrw_cwd))
+    end
 
     vim.bo[buf].buftype = "nofile"
     vim.bo[buf].bufhidden = "wipe"
@@ -112,10 +133,9 @@ local function sh_stream_in_split(cmd, opts)
         env = env,
         stdout_buffered = false,
         stderr_buffered = false,
-        pty = false,             -- stay non-pty; we render escapes ourselves
+        pty = false,
         stdin = "pipe",
         on_stdout = vim.schedule_wrap(function(_, data) add_lines(data) end),
-        -- keep stderr separate or tag it; ANSI from the tool will still color
         on_stderr = vim.schedule_wrap(function(_, data) add_lines(data, "") end),
         on_exit   = vim.schedule_wrap(function(_, code)
             add_lines({ "", ("[exit %d]"):format(code) })
@@ -145,37 +165,15 @@ vim.api.nvim_create_user_command("Sh", function(args)
     sh_stream_in_split(args.args, { height = 20 })
 end, { nargs = "+", complete = "shellcmd" })
 
--- :ShIn {cmd} → stdin = whole buffer
 vim.api.nvim_create_user_command("ShIn", function(args)
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
 end, { nargs = "+", complete = "shellcmd" })
 
--- :[range]ShIn {cmd} → stdin = selected range (works with visual selection)
 vim.api.nvim_create_user_command("ShR", function(args)
     local l1, l2 = args.line1, args.line2
     local lines = vim.api.nvim_buf_get_lines(0, l1 - 1, l2, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
 end, { nargs = "+", range = true, complete = "shellcmd" })
-
--- MAPPINGS FOR '$' -------------------------------------------------------
-
---[[ vim.keymap.set("c", "$", function()
-    if vim.fn.getcmdtype() == ":" and vim.fn.getcmdpos() == 1 then
-        return "Sh "
-    end
-    return "$"
-end, { expr = true })
-
-vim.api.nvim_create_autocmd("CmdwinEnter", {
-    callback = function()
-        local function at_col1() return vim.fn.col(".") == 1 end
-
-        vim.keymap.set("i", "$", function()
-            if at_col1() then return "Sh" end
-            return "$"
-        end, { buffer = true, expr = true })
-    end,
-}) ]]
 
 

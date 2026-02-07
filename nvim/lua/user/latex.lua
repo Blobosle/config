@@ -1,5 +1,10 @@
 -- Compile the current buffer with pdflatex (×3) without blocking Neovim
 vim.api.nvim_create_user_command('Latex', function()
+    if vim.fn.expand('%:e') ~= 'tex' then
+        vim.notify('Skipping latex compilation.', vim.log.levels.WARN)
+        return
+    end
+
     local file_dir  = vim.fn.expand('%:p:h')
     local file_name = vim.fn.expand('%:t:r')
     local tex_file  = file_name .. '.tex'
@@ -15,7 +20,6 @@ vim.api.nvim_create_user_command('Latex', function()
     }, ' ')
 
     vim.fn.jobstart({ 'sh', '-c', cmd }, {
-        -- no on_stdout / on_stderr → no log spam
         on_exit = function(_, code, _)
             if code == 0 then
                 vim.notify('pdflatex finished successfully', vim.log.levels.INFO)

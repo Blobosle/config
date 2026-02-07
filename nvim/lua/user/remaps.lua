@@ -1,9 +1,20 @@
+-- Split screen remap
+vim.keymap.set('n', 'S', ':vs<CR>', { noremap = true, silent = true })
+
 -- Copy-paste functionality
 vim.keymap.set('n', '<C-c>', '<Plug>OSCYankOperator')
 vim.keymap.set('v', '<C-c>', '<Plug>OSCYankVisual')
 
 -- Cycling between numerous tabs
 vim.api.nvim_set_keymap('n', 'A', ':tabnext<CR>', { noremap = true, silent = true })
+
+-- Shift tab
+vim.keymap.set("i", "<S-Tab>", function()
+  return vim.api.nvim_replace_termcodes("<Esc>==gi", true, false, true)
+end, { expr = true, noremap = true, silent = true })
+
+-- C style make vim command setup
+vim.opt.makeprg = "gcc % && ./a.out"
 
 -- Commands to shorten Vim editor writing and exits
 vim.api.nvim_set_keymap('n', 'ZC', ':q<CR>', { noremap = true, silent = true })

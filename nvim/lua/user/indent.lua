@@ -1,6 +1,6 @@
 -- Remove all trailing whitespaces except in specific file types
 vim.api.nvim_create_autocmd("BufWritePre", {
-    pattern = "*",   
+    pattern = "*",
     callback = function()
         local filetype = vim.bo.filetype
         if filetype ~= "txt" then
@@ -23,21 +23,21 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- Sets space indentation to 2 for specific file types
-vim.api.nvim_create_autocmd("FileType", {
-    pattern = { "c" },
-    callback = function()
-        local fname = vim.fn.expand("%:p")
-        local pd1 = vim.fn.expand("~/Purdue/")
-        local pd2 = vim.fn.expand("~/Desktop/Purdue/")
-
-        if fname:sub(1, #pd1) ~= pd1 and fname:sub(1, #pd2) ~= pd2 then
-            return
-        end
-
-        vim.opt_local.tabstop    = 2
-        vim.opt_local.shiftwidth = 2
-        vim.opt_local.expandtab  = true
-    end,
-})
+-- vim.api.nvim_create_autocmd("FileType", {
+--     pattern = { "c" },
+--     callback = function()
+--         local fname = vim.fn.expand("%:p")
+--         local pd1 = vim.fn.expand("~/Purdue/")
+--         local pd2 = vim.fn.expand("~/Desktop/Purdue/")
+--
+--         if fname:sub(1, #pd1) ~= pd1 and fname:sub(1, #pd2) ~= pd2 then
+--             return
+--         end
+--
+--         vim.opt_local.tabstop    = 2
+--         vim.opt_local.shiftwidth = 2
+--         vim.opt_local.expandtab  = true
+--     end,
+-- })
 
 
