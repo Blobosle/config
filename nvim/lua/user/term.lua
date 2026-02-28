@@ -44,6 +44,22 @@ vim.api.nvim_set_keymap('t', '<C-q>', [[<C-\><C-n>i exit<CR>]], { noremap = true
 vim.api.nvim_set_keymap('n', '<S-CR>', '<C-w>w', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('t', '<S-CR>', '<C-\\><C-n><C-w>w', { noremap = true, silent = true })
 
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "netrw",
+    callback = function(args)
+        vim.schedule(function()
+            pcall(vim.keymap.del, "n", "<S-CR>", { buffer = args.buf })
+
+            vim.keymap.set("n", "<S-CR>", "<C-w>w", {
+                buffer = args.buf,
+                noremap = true,
+                silent = true,
+            })
+        end)
+    end,
+})
+
+
 -- Skips unnecesary terminal instance closing sequence
 vim.api.nvim_create_autocmd("TermClose", {
     pattern = "*",

@@ -11,6 +11,7 @@ for _, m in ipairs({
     "quickfix",
     "grep",
     "man",
+    "split-max",
 }) do
     require("user." .. m)
 end
