@@ -1,5 +1,16 @@
 -- Split screen remap
 vim.keymap.set('n', 'S', ':vs<CR>', { noremap = true, silent = true })
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "netrw",
+    callback = function(ev)
+        vim.keymap.set('n', 'S', '<Cmd>vsplit<CR>', {
+            buffer = ev.buf,
+            noremap = true,
+            silent = true,
+        })
+    end,
+})
+
 
 -- Copy-paste functionality
 vim.keymap.set('n', '<C-c>', '<Plug>OSCYankOperator')

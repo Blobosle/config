@@ -1,55 +1,93 @@
--- remember the cwd when nvim started (the "root" you want netrw to reset to)
-local initial_cwd = vim.fn.getcwd()
+-- Root = where nvim started (used by harpoon wrapper too)
+_G.ROOT_CWD = _G.ROOT_CWD or vim.fn.getcwd()
 
--- ensure netrw doesn't auto-change the global cwd while browsing
+-- netrw: do NOT auto-change the global cwd while browsing
 vim.g.netrw_keepdir = 1
 
--- when entering a netrw buffer, reset global cwd to the initial root
+-- netrw buffer settings (relative numbers, etc.)
+vim.g.netrw_bufsettings = "noma nomod nonu nobl nowrap ro rnu"
+
+local aug = vim.api.nvim_create_augroup("CwdNetrwGlue", { clear = true })
+
+local function win_lcd(dir)
+  if not dir or dir == "" then return end
+  pcall(vim.cmd, "lcd " .. vim.fn.fnameescape(dir))
+end
+
+local function sync_netrw_dir(buf)
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
+  if vim.bo[buf].filetype ~= "netrw" then return end
+
+  local dir = vim.b[buf].netrw_curdir
+  if dir and dir ~= "" then
+    -- remember last dir per-tab
+    vim.t.netrw_lastdir = dir
+
+    -- lock the current netrw window to netrw's true current dir
+    if vim.api.nvim_get_current_buf() == buf then
+      win_lcd(dir)
+    end
+  end
+end
+
+-- When netrw opens: open in last tab dir (if any), then resync (fixes "1 behind"),
+-- then keep syncing while browsing.
 vim.api.nvim_create_autocmd("FileType", {
+  group = aug,
   pattern = "netrw",
-  callback = function()
-    -- safe cd back to initial root
-    pcall(vim.cmd, "cd " .. vim.fn.fnameescape(initial_cwd))
+  callback = function(ev)
+    local buf = ev.buf
+
+    -- open where you last left netrw in this tab
+    if vim.t.netrw_lastdir and vim.t.netrw_lastdir ~= "" then
+      win_lcd(vim.t.netrw_lastdir)
+    end
+
+    -- netrw updates b:netrw_curdir slightly after FileType fires
+    vim.defer_fn(function()
+      sync_netrw_dir(buf)
+    end, 10)
+
+    -- keep syncing while inside netrw (so entering dirs updates immediately)
+    vim.api.nvim_create_autocmd({ "CursorMoved", "CursorHold", "BufEnter" }, {
+      group = aug,
+      buffer = buf,
+      callback = function()
+        sync_netrw_dir(buf)
+      end,
+    })
   end,
 })
 
--- when entering any regular file buffer, cd to that file's directory
+-- When entering a real file buffer, cd GLOBAL to that file's directory
+-- (this makes memento + normal navigation behave how you want)
 vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
+  group = aug,
   callback = function()
     local buf = vim.api.nvim_get_current_buf()
     local name = vim.api.nvim_buf_get_name(buf)
-
-    -- ignore unnamed buffers (no file), directories, and special buffers
     if name == "" then return end
     if vim.fn.isdirectory(name) == 1 then return end
 
-    local ok, ft = pcall(vim.api.nvim_buf_get_option, buf, "filetype")
-    if not ok then return end
+    local ft = vim.bo[buf].filetype
     if ft == "netrw" or ft == "terminal" or ft == "help" then return end
 
-    -- cd globally to the file's directory
     local dir = vim.fn.fnamemodify(name, ":p:h")
     pcall(vim.cmd, "cd " .. vim.fn.fnameescape(dir))
   end,
 })
 
--- Netrw relative numbers
-vim.g.netrw_bufsettings = "noma nomod nonu nobl nowrap ro rnu"
+-- Open netrw locked to current file dir (window-local)
+vim.keymap.set("n", "<leader>e", function()
+  local file_dir = vim.fn.expand("%:p:h")
+  if file_dir ~= "" then win_lcd(file_dir) end
+  vim.cmd("Explore")
+end, { desc = "Explore (locked to file dir)" })
 
--- Opening Netrw
-vim.keymap.set('n', '<leader>e', vim.cmd.Ex)
-
--- Opens a new tab in Newtr in the edited directory
-_G.open_netrw_in_file_dir = function()
-    local original_file_dir = vim.fn.expand('%:p:h')
-    local original_dir = vim.fn.getcwd()
-
-    vim.cmd('tabnew')
-    vim.cmd('lcd ' .. original_file_dir)
-    vim.cmd('Explore')
-    vim.cmd('lcd ' .. original_dir)
-    vim.cmd('autocmd TabLeave * ++once lua vim.cmd("lcd ' .. original_dir .. '")')
-end
-
-vim.api.nvim_set_keymap('n', '<leader>w', ':lua _G.open_netrw_in_file_dir()<CR>', { noremap = true, silent = true })
-
+-- Open netrw in a new tab locked to current file dir
+vim.keymap.set("n", "<leader>w", function()
+  local file_dir = vim.fn.expand("%:p:h")
+  vim.cmd("tabnew")
+  if file_dir ~= "" then win_lcd(file_dir) end
+  vim.cmd("Explore")
+end, { desc = "Explore in new tab (locked)" })
