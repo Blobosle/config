@@ -12,7 +12,7 @@ return {
         },
         opts = {
             automatic_enable = false,
-            ensure_installed = { "clangd", "ts_ls", "tailwindcss", "cmake", "protols"},
+            ensure_installed = { "clangd", "ts_ls", "tailwindcss", "cmake", "protols" },
         },
     },
     {
@@ -21,12 +21,11 @@ return {
         config = function()
             vim.diagnostic.config({ virtual_text = true })
 
-            local lsp = require("lspconfig")
-            lsp.clangd.setup({})
-            lsp.ts_ls.setup({})
-            lsp.tailwindcss.setup({})
-            lsp.cmake.setup({})
-            lsp.protols.setup({})
+            vim.lsp.enable("clangd")
+            vim.lsp.enable("ts_ls")
+            vim.lsp.enable("tailwindcss")
+            vim.lsp.enable("cmake")
+            vim.lsp.enable("protols")
         end,
     },
 }
