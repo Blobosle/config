@@ -3,7 +3,7 @@ require("user")
 
 _G.color = "onedark"
 
-vim.cmd("set number")
+-- vim.cmd("set number")
 vim.cmd("set linebreak")
 vim.cmd("set ruler")
 vim.cmd("set expandtab ")
@@ -21,7 +21,7 @@ vim.cmd("colorscheme " .. _G.color)
 
 vim.opt.hlsearch = true
 vim.opt.incsearch = true
-vim.opt.relativenumber = true
+-- vim.opt.relativenumber = true
 vim.opt.guicursor = ""
 vim.opt.swapfile = false
 vim.opt.signcolumn = "yes"

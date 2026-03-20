@@ -11,6 +11,27 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
+-- Floating preview for LSP errors
+vim.keymap.set("n", "<leader>r", function()
+  vim.schedule(function()
+    local d = vim.diagnostic.get(0, { lnum = vim.fn.line(".") - 1 })
+    if #d == 0 then
+      print("No diagnostics on this line")
+      return
+    end
+
+    local lines = {}
+    for _, x in ipairs(d) do
+      table.insert(lines, x.message)
+    end
+
+    vim.lsp.util.open_floating_preview(lines, "plaintext", {
+      border = "rounded",
+      focusable = true,
+      close_events = {},
+    })
+  end)
+end, { desc = "Show line diagnostics" })
 
 -- Copy-paste functionality
 vim.keymap.set('n', '<C-c>', '<Plug>OSCYankOperator')
