@@ -1,32 +1,36 @@
 -- Compile the current buffer with pdflatex (×3) without blocking Neovim
 vim.api.nvim_create_user_command('Latex', function()
-    if vim.fn.expand('%:e') ~= 'tex' then
-        vim.notify('Skipping latex compilation.', vim.log.levels.WARN)
-        return
-    end
+  if vim.fn.expand('%:e') ~= 'tex' then
+    vim.notify('Skipping LaTeX compilation.', vim.log.levels.WARN)
+    return
+  end
 
-    local file_dir  = vim.fn.expand('%:p:h')
-    local file_name = vim.fn.expand('%:t:r')
-    local tex_file  = file_name .. '.tex'
-    local pdf_file  = file_name .. '.pdf'
+  local file_dir = vim.fn.expand('%:p:h')
+  local tex_file = vim.fn.expand('%:t')
+  local pdf_path = file_dir .. '/.latex/' .. vim.fn.expand('%:t:r') .. '.pdf'
 
-    local cmd = table.concat({
-        'cd', vim.fn.shellescape(file_dir), '&&',
-        'rm -f', vim.fn.shellescape(pdf_file), '&&',
-        ('for i in 1 2 3; do pdflatex -interaction=batchmode %s; done;')
-            :format(vim.fn.shellescape(tex_file)),
-        'rm -f', vim.fn.shellescape(file_name .. '.aux'),
-        vim.fn.shellescape(file_name .. '.log')
-    }, ' ')
+  vim.fn.mkdir(file_dir .. '/.latex', 'p')
 
-    vim.fn.jobstart({ 'sh', '-c', cmd }, {
-        on_exit = function(_, code, _)
-            if code == 0 then
-                vim.notify('pdflatex finished successfully', vim.log.levels.INFO)
-                vim.schedule(function() vim.cmd('OpenPDF') end)
-            end
-        end,
-    })
+  vim.fn.jobstart({
+    'latexmk',
+    '-pdf',
+    '-interaction=nonstopmode',
+    '-silent',
+    '-auxdir=.latex',
+    tex_file,
+  }, {
+    cwd = file_dir,
+    on_exit = function(_, code, _)
+      if code == 0 then
+        vim.notify('LaTeX build finished', vim.log.levels.INFO)
+        vim.schedule(function()
+          vim.cmd('OpenPDF')
+        end)
+      else
+        vim.notify('LaTeX build failed', vim.log.levels.ERROR)
+      end
+    end,
+  })
 end, {})
 
 -- Keep a per‑session record of PDFs we’ve launched.

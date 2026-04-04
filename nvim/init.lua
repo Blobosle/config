@@ -28,3 +28,4 @@ vim.opt.signcolumn = "yes"
 vim.opt.termguicolors = true
 vim.opt.splitright = true
 
+vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = "#f7c6d0", bold = false })
