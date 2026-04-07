@@ -10,84 +10,134 @@ vim.g.netrw_bufsettings = "noma nomod nonu nobl nowrap ro rnu"
 local aug = vim.api.nvim_create_augroup("CwdNetrwGlue", { clear = true })
 
 local function win_lcd(dir)
-  if not dir or dir == "" then return end
-  pcall(vim.cmd, "lcd " .. vim.fn.fnameescape(dir))
+    if not dir or dir == "" then return end
+    pcall(vim.cmd, "lcd " .. vim.fn.fnameescape(dir))
 end
 
 local function sync_netrw_dir(buf)
-  if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
-  if vim.bo[buf].filetype ~= "netrw" then return end
+    if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
+    if vim.bo[buf].filetype ~= "netrw" then return end
 
-  local dir = vim.b[buf].netrw_curdir
-  if dir and dir ~= "" then
-    -- remember last dir per-tab
-    vim.t.netrw_lastdir = dir
+    local dir = vim.b[buf].netrw_curdir
+    if dir and dir ~= "" then
+        -- remember last dir per-tab
+        vim.t.netrw_lastdir = dir
 
-    -- lock the current netrw window to netrw's true current dir
-    if vim.api.nvim_get_current_buf() == buf then
-      win_lcd(dir)
+        -- lock the current netrw window to netrw's true current dir
+        if vim.api.nvim_get_current_buf() == buf then
+            win_lcd(dir)
+        end
     end
-  end
 end
 
 -- When netrw opens: open in last tab dir (if any), then resync (fixes "1 behind"),
 -- then keep syncing while browsing.
 vim.api.nvim_create_autocmd("FileType", {
-  group = aug,
-  pattern = "netrw",
-  callback = function(ev)
-    local buf = ev.buf
+    group = aug,
+    pattern = "netrw",
+    callback = function(ev)
+        local buf = ev.buf
 
-    -- open where you last left netrw in this tab
-    if vim.t.netrw_lastdir and vim.t.netrw_lastdir ~= "" then
-      win_lcd(vim.t.netrw_lastdir)
-    end
+        -- open where you last left netrw in this tab
+        if vim.t.netrw_lastdir and vim.t.netrw_lastdir ~= "" then
+            win_lcd(vim.t.netrw_lastdir)
+        end
 
-    -- netrw updates b:netrw_curdir slightly after FileType fires
-    vim.defer_fn(function()
-      sync_netrw_dir(buf)
-    end, 10)
+        -- netrw updates b:netrw_curdir slightly after FileType fires
+        vim.defer_fn(function()
+            sync_netrw_dir(buf)
+        end, 10)
 
-    -- keep syncing while inside netrw (so entering dirs updates immediately)
-    vim.api.nvim_create_autocmd({ "CursorMoved", "CursorHold", "BufEnter" }, {
-      group = aug,
-      buffer = buf,
-      callback = function()
-        sync_netrw_dir(buf)
-      end,
-    })
-  end,
+        -- keep syncing while inside netrw (so entering dirs updates immediately)
+        vim.api.nvim_create_autocmd({ "CursorMoved", "CursorHold", "BufEnter" }, {
+            group = aug,
+            buffer = buf,
+            callback = function()
+                sync_netrw_dir(buf)
+            end,
+        })
+    end,
 })
 
 -- When entering a real file buffer, cd GLOBAL to that file's directory
 -- (this makes memento + normal navigation behave how you want)
 vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
-  group = aug,
-  callback = function()
-    local buf = vim.api.nvim_get_current_buf()
-    local name = vim.api.nvim_buf_get_name(buf)
-    if name == "" then return end
-    if vim.fn.isdirectory(name) == 1 then return end
+    group = aug,
+    callback = function()
+        local buf = vim.api.nvim_get_current_buf()
+        local name = vim.api.nvim_buf_get_name(buf)
+        if name == "" then return end
+        if vim.fn.isdirectory(name) == 1 then return end
 
-    local ft = vim.bo[buf].filetype
-    if ft == "netrw" or ft == "terminal" or ft == "help" then return end
+        local ft = vim.bo[buf].filetype
+        if ft == "netrw" or ft == "terminal" or ft == "help" then return end
 
-    local dir = vim.fn.fnamemodify(name, ":p:h")
-    pcall(vim.cmd, "cd " .. vim.fn.fnameescape(dir))
-  end,
+        local dir = vim.fn.fnamemodify(name, ":p:h")
+        pcall(vim.cmd, "cd " .. vim.fn.fnameescape(dir))
+    end,
 })
 
 -- Open netrw locked to current file dir (window-local)
 vim.keymap.set("n", "<leader>e", function()
-  local file_dir = vim.fn.expand("%:p:h")
-  if file_dir ~= "" then win_lcd(file_dir) end
-  vim.cmd("Explore")
+    local file_dir = vim.fn.expand("%:p:h")
+    if file_dir ~= "" then win_lcd(file_dir) end
+    vim.cmd("Explore")
 end, { desc = "Explore (locked to file dir)" })
 
 -- Open netrw in a new tab locked to current file dir
 vim.keymap.set("n", "<leader>w", function()
-  local file_dir = vim.fn.expand("%:p:h")
-  vim.cmd("tabnew")
-  if file_dir ~= "" then win_lcd(file_dir) end
-  vim.cmd("Explore")
+    local file_dir = vim.fn.expand("%:p:h")
+    vim.cmd("tabnew")
+    if file_dir ~= "" then win_lcd(file_dir) end
+    vim.cmd("Explore")
 end, { desc = "Explore in new tab (locked)" })
+
+-- Renaming inside of a buffer
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "netrw",
+    callback = function(ev)
+        vim.keymap.set("n", "R", function()
+            local name = vim.fn.expand("<cfile>")
+            local dir = vim.b.netrw_curdir or vim.fn.getcwd()
+            local from = dir .. "/" .. name
+
+            vim.cmd("belowright 1new")
+            local buf = vim.api.nvim_get_current_buf()
+
+            vim.bo[buf].buftype = "nofile"
+            vim.bo[buf].bufhidden = "wipe"
+            vim.bo[buf].swapfile = false
+            vim.bo[buf].modifiable = true
+            vim.bo[buf].readonly = false
+
+            vim.api.nvim_buf_set_lines(buf, 0, -1, false, { from })
+            vim.api.nvim_win_set_cursor(0, { 1, #from + 1 })
+
+            local function apply()
+                local to = vim.trim(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or "")
+
+                if to == "" or to == from then
+                    vim.cmd("bd!")
+                    return
+                end
+
+                local ok = vim.fn.rename(from, to)
+                if ok ~= 0 then
+                    vim.notify("rename failed: " .. from .. " -> " .. to, vim.log.levels.ERROR)
+                    return
+                end
+
+                vim.cmd("bd!")
+            end
+
+            vim.keymap.set("n", "<CR>", apply, { buffer = buf, silent = true })
+            vim.keymap.set("i", "<CR>", function()
+                vim.cmd("stopinsert")
+                apply()
+            end, { buffer = buf, silent = true })
+
+            vim.keymap.set("n", "q", "<cmd>bd!<cr>", { buffer = buf, silent = true })
+            vim.keymap.set("n", "<Esc>", "<cmd>bd!<cr>", { buffer = buf, silent = true })
+        end, { buffer = ev.buf, silent = true })
+    end,
+})

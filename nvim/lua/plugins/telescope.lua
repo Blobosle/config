@@ -4,6 +4,31 @@ local function buf_dir()
     return d
 end
 
+local function find_dirs_here()
+    local pickers = require("telescope.pickers")
+    local finders = require("telescope.finders")
+    local conf = require("telescope.config").values
+
+    local cwd = buf_dir()
+
+    pickers.new({}, {
+        prompt_title = "Directories",
+        finder = finders.new_oneshot_job({
+            "fd",
+            "--type", "d",
+            "--strip-cwd-prefix",
+
+            "--exclude", "node_modules",
+            "--exclude", ".git",
+
+            ".",
+        }, {
+            cwd = cwd,
+        }),
+        sorter = conf.generic_sorter({}),
+    }):find()
+end
+
 return {
     'nvim-telescope/telescope.nvim',
     tag = '0.1.8',
@@ -27,6 +52,12 @@ return {
                 })
             end,
             desc = "Telescope grep (args) here"
+        },
+
+        { "<leader>f", function()
+                find_dirs_here()
+            end,
+            desc = "Telescope find directories (here)"
         },
     },
 }
