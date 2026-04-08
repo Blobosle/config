@@ -12,7 +12,7 @@ for _, m in ipairs({
     "grep",
     "man",
     "split-max",
+    "buffer",
 }) do
     require("user." .. m)
 end
-
