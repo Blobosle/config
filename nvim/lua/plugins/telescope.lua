@@ -28,6 +28,19 @@ local function file_entry_maker(opts, cwd)
     }))
 end
 
+local function parent_aware_file_sorter(opts, strip_prompt)
+    local sorter = require('telescope.config').values.file_sorter(opts)
+    local highlighter = sorter.highlighter
+
+    if highlighter then
+        sorter.highlighter = function(_, prompt, display)
+            return highlighter(sorter, strip_prompt(prompt), display)
+        end
+    end
+
+    return sorter
+end
+
 local function find_files_with_parent()
     local cwd = buf_dir()
     local parent = vim.fn.fnamemodify(cwd, ':h')
@@ -87,6 +100,7 @@ local function find_files_with_parent()
     }
 
     opts.entry_maker = file_entry_maker(opts, cwd)
+    opts.sorter = parent_aware_file_sorter(opts, prompt_without_parent)
 
     require('telescope.builtin').find_files(opts)
 end
