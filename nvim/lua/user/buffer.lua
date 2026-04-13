@@ -136,12 +136,12 @@ local function open_terminal_buffer_picker()
         attach_mappings = function(prompt_bufnr)
             actions.select_default:replace(function()
                 local selection = action_state.get_selected_entry()
-                actions.close(prompt_bufnr)
 
-                if not selection then
+                if not (selection and selection.bufnr and vim.api.nvim_buf_is_valid(selection.bufnr)) then
                     return
                 end
 
+                actions.close(prompt_bufnr)
                 vim.cmd("vsplit")
                 vim.api.nvim_win_set_buf(0, selection.bufnr)
 
