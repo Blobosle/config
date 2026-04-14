@@ -14,6 +14,55 @@ local function win_lcd(dir)
     pcall(vim.cmd, "lcd " .. vim.fn.fnameescape(dir))
 end
 
+local function normpath(path)
+    return vim.fn.fnamemodify(path or "", ":p")
+end
+
+local function samefile_ignoring_case(a, b)
+    local ap = normpath(a)
+    local bp = normpath(b)
+    if ap == "" or bp == "" then
+        return false
+    end
+    return ap:lower() == bp:lower()
+end
+
+local function rename_path(from, to)
+    if not samefile_ignoring_case(from, to) or from == to then
+        return vim.fn.rename(from, to)
+    end
+
+    local tmp = ("%s.__netrw_case_rename__.%d"):format(from, vim.loop.hrtime())
+    local first = vim.fn.rename(from, tmp)
+    if first ~= 0 then
+        return first
+    end
+
+    local second = vim.fn.rename(tmp, to)
+    if second ~= 0 then
+        vim.fn.rename(tmp, from)
+        return second
+    end
+
+    return 0
+end
+
+local function retarget_renamed_buffers(from, to)
+    local from_path = normpath(from)
+    local to_path = normpath(to)
+
+    for _, target in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_valid(target) then
+            local name = vim.api.nvim_buf_get_name(target)
+            if name ~= "" and samefile_ignoring_case(name, from_path) then
+                vim.api.nvim_buf_call(target, function()
+                    vim.cmd("silent keepalt file " .. vim.fn.fnameescape(to_path))
+                end)
+            end
+        end
+    end
+end
+
 local function sync_netrw_dir(buf)
     if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
     if vim.bo[buf].filetype ~= "netrw" then return end
@@ -99,7 +148,7 @@ vim.api.nvim_create_autocmd("FileType", {
         vim.keymap.set("n", "R", function()
             local name = vim.fn.expand("<cfile>")
             local dir = vim.b.netrw_curdir or vim.fn.getcwd()
-            local from = dir .. "/" .. name
+            local from = normpath(dir .. "/" .. name)
 
             vim.cmd("belowright 1new")
             local buf = vim.api.nvim_get_current_buf()
@@ -114,20 +163,22 @@ vim.api.nvim_create_autocmd("FileType", {
             vim.api.nvim_win_set_cursor(0, { 1, #from + 1 })
 
             local function apply()
-                local to = vim.trim(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or "")
+                local to = normpath(vim.trim(vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or ""))
 
                 if to == "" or to == from then
                     vim.cmd("bd!")
                     return
                 end
 
-                local ok = vim.fn.rename(from, to)
+                local ok = rename_path(from, to)
                 if ok ~= 0 then
                     vim.notify("rename failed: " .. from .. " -> " .. to, vim.log.levels.ERROR)
                     return
                 end
 
+                retarget_renamed_buffers(from, to)
                 vim.cmd("bd!")
+                vim.cmd("silent! edit")
             end
 
             vim.keymap.set("n", "<CR>", apply, { buffer = buf, silent = true })
