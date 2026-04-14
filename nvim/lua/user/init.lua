@@ -8,6 +8,7 @@ for _, m in ipairs({
     "func-telescope",
     "cmd",
     "latex",
+    "eof",
     "quickfix",
     "grep",
     "man",
