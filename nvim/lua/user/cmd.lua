@@ -78,16 +78,19 @@ local function sh_stream_in_split(cmd, opts)
     end
 
     local pending = ""
-    local function add_lines(lines, prefix)
+    local function add_lines(lines, prefix, suffix)
         if not lines or (#lines == 1 and lines[1] == "") then return end
         local t = {}
         for _, l in ipairs(lines) do
             if l ~= "" then
+                local line = l
                 if prefix then
-                    table.insert(t, prefix .. l)
-                else
-                    table.insert(t, l)
+                    line = prefix .. line
                 end
+                if suffix then
+                    line = line .. suffix
+                end
+                table.insert(t, line)
             end
         end
         if #t > 0 then
@@ -128,15 +131,24 @@ local function sh_stream_in_split(cmd, opts)
     add_lines({ "$ " .. cmd, "" })
 
     local shell = (vim.o.shell ~= "" and vim.o.shell) or os.getenv("SHELL") or "sh"
+    local job_env = vim.tbl_extend("force", {}, env or {})
+    if job_env.TERM == nil or job_env.TERM == "" or job_env.TERM == "dumb" then
+        job_env.TERM = "xterm-256color"
+    end
+    job_env.COLORTERM = job_env.COLORTERM or "truecolor"
+    job_env.CLICOLOR = job_env.CLICOLOR or "1"
+    job_env.CLICOLOR_FORCE = job_env.CLICOLOR_FORCE or "1"
+    job_env.FORCE_COLOR = job_env.FORCE_COLOR or "1"
+
     local job_id = vim.fn.jobstart({ shell, "-c", cmd }, {
         cwd = cwd,
-        env = env,
+        env = job_env,
         stdout_buffered = false,
         stderr_buffered = false,
         pty = false,
         stdin = "pipe",
         on_stdout = vim.schedule_wrap(function(_, data) add_lines(data) end),
-        on_stderr = vim.schedule_wrap(function(_, data) add_lines(data, "") end),
+        on_stderr = vim.schedule_wrap(function(_, data) add_lines(data, "\27[31m", "\27[0m") end),
         on_exit   = vim.schedule_wrap(function(_, code)
             add_lines({ "", ("[exit %d]"):format(code) })
             flush()
@@ -175,5 +187,4 @@ vim.api.nvim_create_user_command("ShR", function(args)
     local lines = vim.api.nvim_buf_get_lines(0, l1 - 1, l2, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
 end, { nargs = "+", range = true, complete = "shellcmd" })
-
 
