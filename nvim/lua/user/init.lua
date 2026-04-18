@@ -14,6 +14,7 @@ for _, m in ipairs({
     "man",
     "split-max",
     "buffer",
+    "build",
 }) do
     require("user." .. m)
 end
