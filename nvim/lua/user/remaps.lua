@@ -102,11 +102,17 @@ vim.api.nvim_create_autocmd("User", {
   callback = function()
     pcall(vim.keymap.del, "n", "<C-e>")
     vim.keymap.set("n", "<C-e>", function()
+      if _G.harpoon_menu_from_root then
+        return _G.harpoon_menu_from_root()
+      end
+
+      local prev = vim.fn.getcwd()
+      pcall(vim.cmd, "cd " .. vim.fn.fnameescape(_G.ROOT_CWD or prev))
       require("harpoon.ui").toggle_quick_menu()
+      pcall(vim.cmd, "cd " .. vim.fn.fnameescape(prev))
     end, { desc = "Harpoon: quick menu", noremap = true, silent = true })
   end,
 })
 
 -- Custom escape for nested neovim instanc
 vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', {noremap = true, silent = true})
-

@@ -43,11 +43,18 @@ return {
                     cd_to_current_file_dir()
                 end)
             end
+
+            _G.harpoon_menu_from_root = function()
+                local prev = with_root(function()
+                    require("harpoon.ui").toggle_quick_menu()
+                end)
+                pcall(vim.cmd, "cd " .. vim.fn.fnameescape(prev))
+            end
         end,
 
         keys = {
             { "<leader>a", function() _G.harpoon_add_from_root() end, desc = "Harpoon: add file (from root)" },
-            { "<C-e>", function() require("harpoon.ui").toggle_quick_menu() end, desc = "Harpoon: quick menu" },
+            { "<C-e>", function() _G.harpoon_menu_from_root() end, desc = "Harpoon: quick menu" },
             { "<C-z>", function() _G.harpoon_nav_from_root(1) end, desc = "Harpoon: to file 1 (from root)" },
             { "<C-x>", function() _G.harpoon_nav_from_root(2) end, desc = "Harpoon: to file 2 (from root)" },
             { "<C-s>", function() _G.harpoon_nav_from_root(3) end, desc = "Harpoon: to file 3 (from root)" },
