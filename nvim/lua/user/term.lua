@@ -7,21 +7,81 @@ _G.cd_and_open_term = function()
     vim.cmd('autocmd TermClose * ++once lua vim.cmd("cd ' .. original_dir .. '")')
 end
 
+local function is_dir(path)
+    return path and path ~= "" and vim.fn.isdirectory(path) == 1
+end
+
+local function terminal_cwd(bufnr)
+    if vim.bo[bufnr].buftype ~= "terminal" then
+        return nil
+    end
+
+    local job_id = vim.b[bufnr].terminal_job_id
+    if job_id then
+        local pid = vim.fn.jobpid(job_id)
+        if type(pid) == "number" and pid > 0 then
+            local uv = vim.uv or vim.loop
+            local ok, cwd = pcall(uv.fs_realpath, "/proc/" .. pid .. "/cwd")
+            if ok and is_dir(cwd) then
+                return cwd
+            end
+
+            if vim.fn.executable("lsof") == 1 then
+                ok, cwd = pcall(vim.fn.systemlist, { "lsof", "-a", "-p", tostring(pid), "-d", "cwd", "-Fn" })
+                if ok and vim.v.shell_error == 0 then
+                    for _, line in ipairs(cwd) do
+                        local dir = line:match("^n(.+)$")
+                        if is_dir(dir) then
+                            return dir
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local name = vim.api.nvim_buf_get_name(bufnr)
+    local launch_dir = name:match("^term://(.-)//%d+:")
+    if is_dir(launch_dir) then
+        return launch_dir
+    end
+
+    return nil
+end
+
+local function current_buffer_dir()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local cwd = terminal_cwd(bufnr)
+    if is_dir(cwd) then
+        return cwd
+    end
+
+    local file_dir = vim.fn.expand("%:p:h")
+    if is_dir(file_dir) then
+        return file_dir
+    end
+
+    return vim.fn.getcwd()
+end
+
 -- Opening shell split screen
 _G.cd_and_open_term_mod = function()
     local original_win = vim.api.nvim_get_current_win()
     local original_dir = vim.fn.getcwd()
+    local term_dir = current_buffer_dir()
 
-    vim.cmd('lcd %:p:h')
+    vim.cmd('lcd ' .. vim.fn.fnameescape(term_dir))
     vim.cmd('vsplit')
     vim.cmd('term')
 
     local new_win = vim.api.nvim_get_current_win()
     local term_bufnr = vim.api.nvim_get_current_buf()
 
-    vim.api.nvim_set_current_win(original_win)
-    vim.cmd('lcd ' .. original_dir)
-    vim.api.nvim_set_current_win(new_win)
+    if vim.api.nvim_win_is_valid(original_win) then
+        vim.api.nvim_set_current_win(original_win)
+        vim.cmd('lcd ' .. vim.fn.fnameescape(original_dir))
+        vim.api.nvim_set_current_win(new_win)
+    end
 
     vim.api.nvim_create_autocmd("TermClose", {
         buffer = term_bufnr,
