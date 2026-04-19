@@ -59,42 +59,63 @@ return {
             return table.concat(parts, ' '):gsub('%%', '%%%%')
         end
 
+        _G.UserStatusSeparator = function()
+            return string.rep('─', math.max(vim.api.nvim_win_get_width(0), 1))
+        end
+
         local set_transparent_bar = function()
             local normal_hl = vim.api.nvim_get_hl(0, { name = 'Normal' })
             local foreground = normal_hl.fg and string.format('#%06x', normal_hl.fg) or '#d8dee9'
 
             vim.cmd('highlight WinBar guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
             vim.cmd('highlight WinBarNC guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
+            vim.cmd('highlight StatusLine guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
+            vim.cmd('highlight StatusLineNC guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
+            vim.cmd('highlight WinSeparator guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
         end
 
         vim.opt.laststatus = 0
         vim.opt.cmdheight = 1
+        vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
         local user_winbar = '%{%v:lua.UserWinbar()%}'
-        local apply_winbar = function()
+
+        local apply_winbar = function(win)
+            if not vim.api.nvim_win_is_valid(win) then
+                return
+            end
+
             if vim.fn.getcmdwintype() ~= '' then
-                vim.wo.winbar = ''
+                vim.api.nvim_win_set_option(win, 'winbar', '')
             else
-                vim.wo.winbar = user_winbar
+                vim.api.nvim_win_set_option(win, 'winbar', user_winbar)
+            end
+        end
+
+        local apply_winbars = function()
+            for _, win in ipairs(vim.api.nvim_list_wins()) do
+                apply_winbar(win)
             end
         end
 
         vim.opt.winbar = ''
-        apply_winbar()
+        apply_winbars()
 
         set_transparent_bar()
         vim.api.nvim_create_autocmd('ColorScheme', {
             callback = set_transparent_bar,
         })
         local winbar_grp = vim.api.nvim_create_augroup('UserWinbar', { clear = true })
-        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'CmdwinLeave' }, {
+        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinNew', 'WinClosed', 'VimResized', 'CmdwinLeave' }, {
             group = winbar_grp,
-            callback = apply_winbar,
+            callback = function()
+                vim.schedule(apply_winbars)
+            end,
         })
         vim.api.nvim_create_autocmd('CmdwinEnter', {
             group = winbar_grp,
             callback = function()
-                vim.wo.winbar = ''
+                vim.api.nvim_win_set_option(0, 'winbar', '')
             end,
         })
     end,

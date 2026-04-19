@@ -14,6 +14,12 @@ local grp = vim.api.nvim_create_augroup('CmdwinEscQuit', { clear = true })
 vim.api.nvim_create_autocmd('CmdwinEnter', {
     group = grp,
     callback = function()
+        vim.wo.number = true
+        vim.wo.relativenumber = false
+        vim.wo.numberwidth = 1
+        vim.wo.signcolumn = 'no'
+        vim.wo.foldcolumn = '0'
+        vim.wo.statuscolumn = '%l  '
         vim.keymap.set('n', '<Esc>', '<Cmd>q<CR>', { buffer = true, silent = true, desc = 'Close cmdwin' })
     end,
 })
@@ -187,4 +193,3 @@ vim.api.nvim_create_user_command("ShR", function(args)
     local lines = vim.api.nvim_buf_get_lines(0, l1 - 1, l2, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
 end, { nargs = "+", range = true, complete = "shellcmd" })
-
