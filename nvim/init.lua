@@ -5,7 +5,7 @@ _G.color = "onedark"
 
 -- vim.cmd("set number")
 vim.cmd("set linebreak")
-vim.cmd("set ruler")
+vim.cmd("set noruler")
 vim.cmd("set expandtab ")
 vim.cmd("set scrolloff=5")
 
