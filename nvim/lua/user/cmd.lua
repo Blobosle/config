@@ -15,11 +15,11 @@ vim.api.nvim_create_autocmd('CmdwinEnter', {
     group = grp,
     callback = function()
         vim.wo.number = true
-        vim.wo.relativenumber = false
+        vim.wo.relativenumber = true
         vim.wo.numberwidth = 1
         vim.wo.signcolumn = 'no'
         vim.wo.foldcolumn = '0'
-        vim.wo.statuscolumn = '%l  '
+        vim.wo.statuscolumn = '%{v:relnum?v:relnum:v:lnum}  '
         vim.keymap.set('n', '<Esc>', '<Cmd>q<CR>', { buffer = true, silent = true, desc = 'Close cmdwin' })
     end,
 })
