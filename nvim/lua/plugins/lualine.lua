@@ -77,7 +77,8 @@ return {
         vim.opt.cmdheight = 1
         vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
-        local user_winbar = '%{%v:lua.UserWinbar()%}'
+        local left_winbar = '%{%v:lua.UserWinbar()%}'
+        local right_winbar = '%=%{%v:lua.UserWinbar()%}'
 
         local should_skip_winbar = function(win)
             if not vim.api.nvim_win_is_valid(win) then
@@ -102,7 +103,24 @@ return {
                 or filetype == 'prompt'
             end
 
-        local apply_winbar = function(win)
+        local has_vertical_split = function()
+            local rows = {}
+            for _, win in ipairs(vim.api.nvim_list_wins()) do
+                if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_config(win).relative == '' then
+                    local pos = vim.api.nvim_win_get_position(win)
+                    local row = pos[1]
+                    local col = pos[2]
+                    if rows[row] ~= nil and rows[row] ~= col then
+                        return true
+                    end
+                    rows[row] = col
+                end
+            end
+
+            return false
+        end
+
+        local apply_winbar = function(win, winbar)
             if not vim.api.nvim_win_is_valid(win) then
                 return
             end
@@ -110,13 +128,15 @@ return {
             if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win) then
                 vim.api.nvim_win_set_option(win, 'winbar', '')
             else
-                vim.api.nvim_win_set_option(win, 'winbar', user_winbar)
+                vim.api.nvim_win_set_option(win, 'winbar', winbar)
             end
         end
 
         local apply_winbars = function()
+            local user_winbar = has_vertical_split() and left_winbar or right_winbar
+
             for _, win in ipairs(vim.api.nvim_list_wins()) do
-                apply_winbar(win)
+                apply_winbar(win, user_winbar)
             end
         end
 
