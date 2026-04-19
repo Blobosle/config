@@ -39,6 +39,10 @@ return {
         end
 
         _G.UserWinbar = function()
+            if vim.fn.getcmdwintype() ~= '' then
+                return ''
+            end
+
             local parts = {}
             local filename = vim.fn.expand('%:t')
             if filename ~= '' then
@@ -65,11 +69,33 @@ return {
 
         vim.opt.laststatus = 0
         vim.opt.cmdheight = 1
-        vim.opt.winbar = '%{%v:lua.UserWinbar()%}'
+
+        local user_winbar = '%{%v:lua.UserWinbar()%}'
+        local apply_winbar = function()
+            if vim.fn.getcmdwintype() ~= '' then
+                vim.wo.winbar = ''
+            else
+                vim.wo.winbar = user_winbar
+            end
+        end
+
+        vim.opt.winbar = ''
+        apply_winbar()
 
         set_transparent_bar()
         vim.api.nvim_create_autocmd('ColorScheme', {
             callback = set_transparent_bar,
+        })
+        local winbar_grp = vim.api.nvim_create_augroup('UserWinbar', { clear = true })
+        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'CmdwinLeave' }, {
+            group = winbar_grp,
+            callback = apply_winbar,
+        })
+        vim.api.nvim_create_autocmd('CmdwinEnter', {
+            group = winbar_grp,
+            callback = function()
+                vim.wo.winbar = ''
+            end,
         })
     end,
 }
