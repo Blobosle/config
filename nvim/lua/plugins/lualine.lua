@@ -53,7 +53,7 @@ return {
 
             local branch = git_branch()
             if branch ~= '' then
-                table.insert(parts, branch)
+                table.insert(parts, ' ' .. branch)
             end
 
             return table.concat(parts, ' '):gsub('%%', '%%%%')
@@ -71,7 +71,6 @@ return {
             vim.cmd('highlight WinBarNC guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
             vim.cmd('highlight StatusLine guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
             vim.cmd('highlight StatusLineNC guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
-            vim.cmd('highlight WinSeparator guifg=' .. foreground .. ' guibg=NONE gui=NONE ctermbg=NONE cterm=NONE')
         end
 
         vim.opt.laststatus = 0
@@ -80,12 +79,35 @@ return {
 
         local user_winbar = '%{%v:lua.UserWinbar()%}'
 
+        local should_skip_winbar = function(win)
+            if not vim.api.nvim_win_is_valid(win) then
+                return true
+            end
+
+            local config = vim.api.nvim_win_get_config(win)
+            if config.relative ~= '' then
+                return true
+            end
+
+            local buf = vim.api.nvim_win_get_buf(win)
+            local buftype = vim.bo[buf].buftype
+            if buftype ~= '' then
+                return true
+            end
+
+            local filetype = vim.bo[buf].filetype
+            return filetype == 'TelescopePrompt'
+                or filetype == 'TelescopeResults'
+                or filetype == 'TelescopePreview'
+                or filetype == 'prompt'
+            end
+
         local apply_winbar = function(win)
             if not vim.api.nvim_win_is_valid(win) then
                 return
             end
 
-            if vim.fn.getcmdwintype() ~= '' then
+            if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win) then
                 vim.api.nvim_win_set_option(win, 'winbar', '')
             else
                 vim.api.nvim_win_set_option(win, 'winbar', user_winbar)
@@ -106,7 +128,7 @@ return {
             callback = set_transparent_bar,
         })
         local winbar_grp = vim.api.nvim_create_augroup('UserWinbar', { clear = true })
-        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinNew', 'WinClosed', 'VimResized', 'CmdwinLeave' }, {
+        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType', 'WinEnter', 'WinNew', 'WinClosed', 'VimResized', 'CmdwinLeave' }, {
             group = winbar_grp,
             callback = function()
                 vim.schedule(apply_winbars)
