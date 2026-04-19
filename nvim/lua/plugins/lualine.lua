@@ -78,7 +78,7 @@ return {
         vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
         local left_winbar = '%{%v:lua.UserWinbar()%}'
-        local right_winbar = '%=%{%v:lua.UserWinbar()%}'
+        local overlay_by_win = {}
 
         local should_skip_winbar = function(win)
             if not vim.api.nvim_win_is_valid(win) then
@@ -97,7 +97,8 @@ return {
             end
 
             local filetype = vim.bo[buf].filetype
-            return filetype == 'TelescopePrompt'
+            return filetype == 'netrw'
+                or filetype == 'TelescopePrompt'
                 or filetype == 'TelescopeResults'
                 or filetype == 'TelescopePreview'
                 or filetype == 'prompt'
@@ -120,23 +121,88 @@ return {
             return false
         end
 
-        local apply_winbar = function(win, winbar)
+        local close_overlay = function(win)
+            local overlay = overlay_by_win[win]
+            if overlay and overlay.win and vim.api.nvim_win_is_valid(overlay.win) then
+                vim.api.nvim_win_close(overlay.win, true)
+            end
+            overlay_by_win[win] = nil
+        end
+
+        local update_overlay = function(win)
+            if should_skip_winbar(win) then
+                close_overlay(win)
+                return
+            end
+
+            local label = vim.api.nvim_win_call(win, _G.UserWinbar)
+            if label == '' then
+                close_overlay(win)
+                return
+            end
+
+            local width = vim.api.nvim_win_get_width(win)
+            local label_width = math.min(vim.fn.strdisplaywidth(label), width)
+            local col = math.max(width - label_width, 0)
+            local overlay = overlay_by_win[win]
+
+            if not overlay or not overlay.buf or not vim.api.nvim_buf_is_valid(overlay.buf) then
+                overlay = { buf = vim.api.nvim_create_buf(false, true) }
+                overlay_by_win[win] = overlay
+            end
+
+            vim.api.nvim_buf_set_lines(overlay.buf, 0, -1, false, { label })
+
+            local config = {
+                relative = 'win',
+                win = win,
+                row = 0,
+                col = col,
+                width = label_width,
+                height = 1,
+                focusable = false,
+                style = 'minimal',
+                zindex = 60,
+            }
+
+            if overlay.win and vim.api.nvim_win_is_valid(overlay.win) then
+                vim.api.nvim_win_set_config(overlay.win, config)
+            else
+                overlay.win = vim.api.nvim_open_win(overlay.buf, false, config)
+                vim.api.nvim_win_set_option(overlay.win, 'winhighlight', 'Normal:WinBar,NormalFloat:WinBar')
+            end
+        end
+
+        local apply_winbar = function(win, use_native_winbar)
             if not vim.api.nvim_win_is_valid(win) then
                 return
             end
 
             if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win) then
                 vim.api.nvim_win_set_option(win, 'winbar', '')
+                close_overlay(win)
+            elseif use_native_winbar then
+                close_overlay(win)
+                vim.api.nvim_win_set_option(win, 'winbar', left_winbar)
             else
-                vim.api.nvim_win_set_option(win, 'winbar', winbar)
+                vim.api.nvim_win_set_option(win, 'winbar', '')
+                update_overlay(win)
             end
         end
 
         local apply_winbars = function()
-            local user_winbar = has_vertical_split() and left_winbar or right_winbar
+            local use_native_winbar = has_vertical_split()
+            local active_wins = {}
 
             for _, win in ipairs(vim.api.nvim_list_wins()) do
-                apply_winbar(win, user_winbar)
+                active_wins[win] = true
+                apply_winbar(win, use_native_winbar)
+            end
+
+            for win, _ in pairs(overlay_by_win) do
+                if not active_wins[win] then
+                    close_overlay(win)
+                end
             end
         end
 
@@ -148,7 +214,18 @@ return {
             callback = set_transparent_bar,
         })
         local winbar_grp = vim.api.nvim_create_augroup('UserWinbar', { clear = true })
-        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType', 'WinEnter', 'WinNew', 'WinClosed', 'VimResized', 'CmdwinLeave' }, {
+        vim.api.nvim_create_autocmd({
+            'BufEnter',
+            'BufWinEnter',
+            'CursorMoved',
+            'CursorMovedI',
+            'FileType',
+            'WinEnter',
+            'WinNew',
+            'WinClosed',
+            'VimResized',
+            'CmdwinLeave',
+        }, {
             group = winbar_grp,
             callback = function()
                 vim.schedule(apply_winbars)
