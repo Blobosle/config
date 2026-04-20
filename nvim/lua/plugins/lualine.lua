@@ -232,9 +232,9 @@ return {
         end
 
         vim.opt.laststatus = 0
-        vim.opt.cmdheight = 0
+        vim.opt.cmdheight = 1
         vim.opt.showmode = false
-        vim.opt.statusline = ''
+        vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
         local left_winbar = '%{%v:lua.UserWinbar()%}'
         local overlay_by_win = {}
