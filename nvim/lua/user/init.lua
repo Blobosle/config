@@ -1,6 +1,7 @@
 for _, m in ipairs({
     "remaps",
     "netrw",
+    "tab",
     "term",
     "cursor-jump",
     "comments",
