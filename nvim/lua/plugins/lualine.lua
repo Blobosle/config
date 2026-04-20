@@ -108,6 +108,11 @@ return {
         local top_message = { text = '', hl = 'UserTopMessage' }
         local top_message_timer
         local cmdline_active = false
+        local bottom_cmdline_active = false
+        local bottom_cmdline_prefix = ''
+        local bottom_cmdline = {}
+        local bottom_cmdline_ns = vim.api.nvim_create_namespace('UserBottomCmdline')
+        local message_output = {}
         local refresh_winbars = function() end
 
         local clean_message = function(text)
@@ -150,6 +155,125 @@ return {
 
         local has_timed_top_message = function()
             return top_message_timer and not top_message_timer:is_closing()
+        end
+
+        local fit_text = function(text, width)
+            if vim.fn.strdisplaywidth(text) <= width then
+                return text
+            end
+
+            local available = math.max(width - 1, 0)
+            local chars = vim.fn.strchars(text)
+            for start = 1, chars do
+                local candidate = vim.fn.strcharpart(text, start)
+                if vim.fn.strdisplaywidth(candidate) <= available then
+                    return '<' .. candidate
+                end
+            end
+
+            return '<'
+        end
+
+        local close_bottom_cmdline = function()
+            if bottom_cmdline.win and vim.api.nvim_win_is_valid(bottom_cmdline.win) then
+                vim.api.nvim_win_close(bottom_cmdline.win, true)
+            end
+
+            bottom_cmdline.win = nil
+        end
+
+        local show_bottom_cmdline = function(text)
+            local width = math.max(vim.o.columns, 1)
+            local line = fit_text(text or '', width)
+            local padding = string.rep(' ', math.max(width - vim.fn.strdisplaywidth(line), 0))
+
+            if not bottom_cmdline.buf or not vim.api.nvim_buf_is_valid(bottom_cmdline.buf) then
+                bottom_cmdline.buf = vim.api.nvim_create_buf(false, true)
+            end
+
+            vim.api.nvim_buf_set_lines(bottom_cmdline.buf, 0, -1, false, { line .. padding })
+            vim.api.nvim_buf_clear_namespace(bottom_cmdline.buf, bottom_cmdline_ns, 0, -1)
+            vim.api.nvim_buf_set_extmark(bottom_cmdline.buf, bottom_cmdline_ns, 0, 0, {
+                end_col = #line,
+                hl_group = 'UserTopCommand',
+            })
+
+            local config = {
+                relative = 'editor',
+                row = math.max(vim.o.lines - 1, 0),
+                col = 0,
+                width = width,
+                height = 1,
+                focusable = false,
+                style = 'minimal',
+                zindex = 200,
+            }
+
+            if bottom_cmdline.win and vim.api.nvim_win_is_valid(bottom_cmdline.win) then
+                vim.api.nvim_win_set_config(bottom_cmdline.win, config)
+            else
+                bottom_cmdline.win = vim.api.nvim_open_win(bottom_cmdline.buf, false, config)
+                vim.api.nvim_win_set_option(bottom_cmdline.win, 'winhighlight', 'Normal:Normal,NormalFloat:Normal')
+                vim.api.nvim_win_set_option(bottom_cmdline.win, 'wrap', false)
+            end
+        end
+
+        local close_message_output = function()
+            if message_output.win and vim.api.nvim_win_is_valid(message_output.win) then
+                vim.api.nvim_win_close(message_output.win, true)
+            end
+
+            message_output.win = nil
+        end
+
+        local show_message_output = function(text)
+            local lines = vim.split(text:gsub('\r\n', '\n'), '\n', { plain = true })
+            while #lines > 1 and lines[#lines] == '' do
+                table.remove(lines)
+            end
+
+            local width = math.max(vim.o.columns, 1)
+            local height = math.min(math.max(#lines, 1), math.max(math.floor(vim.o.lines * 0.5), 1))
+
+            if not message_output.buf or not vim.api.nvim_buf_is_valid(message_output.buf) then
+                message_output.buf = vim.api.nvim_create_buf(false, true)
+                vim.bo[message_output.buf].buftype = 'nofile'
+                vim.bo[message_output.buf].bufhidden = 'wipe'
+                vim.bo[message_output.buf].swapfile = false
+                vim.bo[message_output.buf].filetype = 'output'
+            end
+
+            vim.bo[message_output.buf].modifiable = true
+            vim.api.nvim_buf_set_lines(message_output.buf, 0, -1, false, lines)
+            vim.bo[message_output.buf].modifiable = false
+
+            local config = {
+                relative = 'editor',
+                row = math.max(vim.o.lines - height - vim.o.cmdheight, 0),
+                col = 0,
+                width = width,
+                height = height,
+                focusable = true,
+                style = 'minimal',
+                border = 'single',
+                zindex = 190,
+            }
+
+            if message_output.win and vim.api.nvim_win_is_valid(message_output.win) then
+                vim.api.nvim_win_set_config(message_output.win, config)
+                vim.api.nvim_set_current_win(message_output.win)
+            else
+                message_output.win = vim.api.nvim_open_win(message_output.buf, true, config)
+                vim.api.nvim_win_set_option(
+                    message_output.win,
+                    'winhighlight',
+                    'Normal:UserMessageOutput,NormalFloat:UserMessageOutput,FloatBorder:UserMessageOutputBorder'
+                )
+                vim.api.nvim_win_set_option(message_output.win, 'wrap', false)
+            end
+
+            vim.keymap.set('n', 'q', close_message_output, { buffer = message_output.buf, silent = true, nowait = true })
+            vim.keymap.set('n', '<Esc>', close_message_output, { buffer = message_output.buf, silent = true, nowait = true })
         end
 
         local render_statusline_parts = function(parts)
@@ -233,6 +357,8 @@ return {
             vim.api.nvim_set_hl(0, 'UserTopError', { fg = '#e06c75', bg = 'NONE' })
             vim.api.nvim_set_hl(0, 'UserTopWarning', { fg = '#e5c07b', bg = 'NONE' })
             vim.api.nvim_set_hl(0, 'UserTopCommand', { fg = '#61afef', bg = 'NONE' })
+            vim.api.nvim_set_hl(0, 'UserMessageOutput', { fg = foreground, bg = 'NONE' })
+            vim.api.nvim_set_hl(0, 'UserMessageOutputBorder', { fg = '#ffffff', bg = 'NONE' })
         end
 
         vim.opt.laststatus = 0
@@ -496,7 +622,11 @@ return {
                     local text = content_text(content)
                     if text ~= '' and kind ~= 'return_prompt' then
                         vim.schedule(function()
-                            set_top_message(text, message_hl(kind), 3000)
+                            if kind == 'list_cmd' or text:find('\n', 1, true) then
+                                show_message_output(text)
+                            else
+                                set_top_message(text, message_hl(kind), 3000)
+                            end
                         end)
                     end
                 elseif event == 'msg_clear' then
@@ -509,11 +639,24 @@ return {
                     local content, _, firstc, prompt = ...
                     vim.schedule(function()
                         cmdline_active = true
-                        set_top_message((firstc or '') .. (prompt or '') .. content_text(content), 'UserTopCommand')
+                        if firstc == ':' then
+                            bottom_cmdline_active = true
+                            bottom_cmdline_prefix = (firstc or '') .. (prompt or '')
+                        end
+                        local text = (firstc or '') .. (prompt or '') .. content_text(content)
+                        if bottom_cmdline_active then
+                            text = bottom_cmdline_prefix .. content_text(content)
+                            show_bottom_cmdline(text)
+                        else
+                            set_top_message(text, 'UserTopCommand')
+                        end
                     end)
                 elseif event == 'cmdline_hide' then
                     vim.schedule(function()
                         cmdline_active = false
+                        bottom_cmdline_active = false
+                        bottom_cmdline_prefix = ''
+                        close_bottom_cmdline()
                         if not has_timed_top_message() then
                             set_top_message('')
                         end
