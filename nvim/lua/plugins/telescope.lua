@@ -43,23 +43,44 @@ end
 
 local function find_files_with_parent()
     local cwd = buf_dir()
-    local parent = vim.fn.fnamemodify(cwd, ':h')
     local current_finder_key = cwd
     local command = find_command()
     local picker
 
-    local function prompt_targets_parent(prompt)
-        return prompt:sub(1, 2) == '..'
+    local function parent_prompt_parts(prompt)
+        local levels = 0
+        local rest = prompt
+
+        while rest:match('^%.%./') do
+            levels = levels + 1
+            rest = rest:sub(4)
+        end
+
+        if rest == '..' then
+            return levels + 1, ''
+        end
+
+        if rest:sub(1, 2) == '..' then
+            return levels + 1, rest:sub(3)
+        end
+
+        return levels, rest
     end
 
     local function prompt_without_parent(prompt)
-        if prompt:match('^%.%./') then
-            return prompt:gsub('^%.%./', '', 1)
+        local _, rest = parent_prompt_parts(prompt)
+        return rest
+    end
+
+    local function prompt_cwd(prompt)
+        local levels = parent_prompt_parts(prompt)
+        local next_cwd = cwd
+
+        for _ = 1, levels do
+            next_cwd = vim.fn.fnamemodify(next_cwd, ':h')
         end
-        if prompt:sub(1, 2) == '..' then
-            return prompt:sub(3)
-        end
-        return prompt
+
+        return next_cwd
     end
 
     local function update_picker_cwd(next_cwd)
@@ -79,7 +100,7 @@ local function find_files_with_parent()
                 return { prompt = prompt }
             end
 
-            local next_finder_key = prompt_targets_parent(prompt) and parent or cwd
+            local next_finder_key = prompt_cwd(prompt)
             if next_finder_key == current_finder_key then
                 return {
                     prompt = prompt_without_parent(prompt),
