@@ -34,8 +34,9 @@ vim.keymap.set("n", "<leader>r", function()
 end, { desc = "Show line diagnostics" })
 
 -- Copy-paste functionality
-vim.keymap.set('n', '<C-c>', '<Plug>OSCYankOperator')
-vim.keymap.set('v', '<C-c>', '<Plug>OSCYankVisual')
+local mark_oscyank = '<Cmd>lua vim.g.user_oscyank_pending = true<CR>'
+vim.keymap.set('n', '<C-c>', mark_oscyank .. '<Plug>OSCYankOperator', { remap = true, silent = true })
+vim.keymap.set('v', '<C-c>', mark_oscyank .. '<Plug>OSCYankVisual', { remap = true, silent = true })
 
 -- Cycling between numerous tabs
 vim.api.nvim_set_keymap('n', 'A', ':tabnext<CR>', { noremap = true, silent = true })

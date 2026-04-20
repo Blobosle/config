@@ -147,6 +147,7 @@ return {
 
             refresh_winbars()
         end
+        _G.UserShowTopMessage = show_top_message
 
         local last_messages = nil
         local latest_message_line = function(messages)
