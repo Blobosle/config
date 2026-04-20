@@ -105,180 +105,6 @@ return {
                 mode_hls[mode] or mode_hls[mode:sub(1, 1)] or 'UserModeNormal'
         end
 
-        local top_message = { text = '', hl = 'UserTopMessage' }
-        local top_message_timer
-        local cmdline_active = false
-        local bottom_cmdline_active = false
-        local bottom_cmdline_prefix = ''
-        local bottom_cmdline = {}
-        local bottom_cmdline_ns = vim.api.nvim_create_namespace('UserBottomCmdline')
-        local message_output = {}
-        local refresh_winbars = function() end
-
-        local clean_message = function(text)
-            return (text or ''):gsub('\n.*', ''):gsub('^%s+', ''):gsub('%s+$', '')
-        end
-
-        local content_text = function(content)
-            local chunks = {}
-            for _, chunk in ipairs(content or {}) do
-                table.insert(chunks, chunk[2] or '')
-            end
-            return table.concat(chunks, '')
-        end
-
-        local set_top_message = function(text, hl, timeout)
-            text = clean_message(text)
-            if text == '' then
-                top_message.text = ''
-            else
-                top_message.text = text
-                top_message.hl = hl or 'UserTopMessage'
-            end
-
-            if top_message_timer and not top_message_timer:is_closing() then
-                top_message_timer:stop()
-                top_message_timer:close()
-            end
-            top_message_timer = nil
-
-            if timeout and text ~= '' then
-                top_message_timer = vim.defer_fn(function()
-                    top_message.text = ''
-                    top_message_timer = nil
-                    refresh_winbars()
-                end, timeout)
-            end
-
-            refresh_winbars()
-        end
-
-        local has_timed_top_message = function()
-            return top_message_timer and not top_message_timer:is_closing()
-        end
-
-        local fit_text = function(text, width)
-            if vim.fn.strdisplaywidth(text) <= width then
-                return text
-            end
-
-            local available = math.max(width - 1, 0)
-            local chars = vim.fn.strchars(text)
-            for start = 1, chars do
-                local candidate = vim.fn.strcharpart(text, start)
-                if vim.fn.strdisplaywidth(candidate) <= available then
-                    return '<' .. candidate
-                end
-            end
-
-            return '<'
-        end
-
-        local close_bottom_cmdline = function()
-            if bottom_cmdline.win and vim.api.nvim_win_is_valid(bottom_cmdline.win) then
-                vim.api.nvim_win_close(bottom_cmdline.win, true)
-            end
-
-            bottom_cmdline.win = nil
-        end
-
-        local show_bottom_cmdline = function(text)
-            local width = math.max(vim.o.columns, 1)
-            local line = fit_text(text or '', width)
-            local padding = string.rep(' ', math.max(width - vim.fn.strdisplaywidth(line), 0))
-
-            if not bottom_cmdline.buf or not vim.api.nvim_buf_is_valid(bottom_cmdline.buf) then
-                bottom_cmdline.buf = vim.api.nvim_create_buf(false, true)
-            end
-
-            vim.api.nvim_buf_set_lines(bottom_cmdline.buf, 0, -1, false, { line .. padding })
-            vim.api.nvim_buf_clear_namespace(bottom_cmdline.buf, bottom_cmdline_ns, 0, -1)
-            vim.api.nvim_buf_set_extmark(bottom_cmdline.buf, bottom_cmdline_ns, 0, 0, {
-                end_col = #line,
-                hl_group = 'UserTopCommand',
-            })
-
-            local config = {
-                relative = 'editor',
-                row = math.max(vim.o.lines - 1, 0),
-                col = 0,
-                width = width,
-                height = 1,
-                focusable = false,
-                style = 'minimal',
-                zindex = 200,
-            }
-
-            if bottom_cmdline.win and vim.api.nvim_win_is_valid(bottom_cmdline.win) then
-                vim.api.nvim_win_set_config(bottom_cmdline.win, config)
-            else
-                bottom_cmdline.win = vim.api.nvim_open_win(bottom_cmdline.buf, false, config)
-                vim.api.nvim_win_set_option(bottom_cmdline.win, 'winhighlight', 'Normal:Normal,NormalFloat:Normal')
-                vim.api.nvim_win_set_option(bottom_cmdline.win, 'wrap', false)
-            end
-        end
-
-        local close_message_output = function()
-            if message_output.win and vim.api.nvim_win_is_valid(message_output.win) then
-                vim.api.nvim_win_close(message_output.win, true)
-            end
-
-            message_output.win = nil
-        end
-
-        local show_message_output = function(text)
-            local lines = vim.split(text:gsub('\r\n', '\n'), '\n', { plain = true })
-            while #lines > 1 and lines[1] == '' do
-                table.remove(lines, 1)
-            end
-            while #lines > 1 and lines[#lines] == '' do
-                table.remove(lines)
-            end
-
-            local width = math.max(vim.o.columns, 1)
-            local height = math.min(math.max(#lines, 1), math.max(math.floor(vim.o.lines * 0.5), 1))
-
-            if not message_output.buf or not vim.api.nvim_buf_is_valid(message_output.buf) then
-                message_output.buf = vim.api.nvim_create_buf(false, true)
-                vim.bo[message_output.buf].buftype = 'nofile'
-                vim.bo[message_output.buf].bufhidden = 'wipe'
-                vim.bo[message_output.buf].swapfile = false
-                vim.bo[message_output.buf].filetype = 'output'
-            end
-
-            vim.bo[message_output.buf].modifiable = true
-            vim.api.nvim_buf_set_lines(message_output.buf, 0, -1, false, lines)
-            vim.bo[message_output.buf].modifiable = false
-
-            local config = {
-                relative = 'editor',
-                row = math.max(vim.o.lines - height - vim.o.cmdheight, 0),
-                col = 0,
-                width = width,
-                height = height,
-                focusable = true,
-                style = 'minimal',
-                border = 'single',
-                zindex = 190,
-            }
-
-            if message_output.win and vim.api.nvim_win_is_valid(message_output.win) then
-                vim.api.nvim_win_set_config(message_output.win, config)
-                vim.api.nvim_set_current_win(message_output.win)
-            else
-                message_output.win = vim.api.nvim_open_win(message_output.buf, true, config)
-                vim.api.nvim_win_set_option(
-                    message_output.win,
-                    'winhighlight',
-                    'Normal:UserMessageOutput,NormalFloat:UserMessageOutput,FloatBorder:UserMessageOutputBorder'
-                )
-                vim.api.nvim_win_set_option(message_output.win, 'wrap', false)
-            end
-
-            vim.keymap.set('n', 'q', close_message_output, { buffer = message_output.buf, silent = true, nowait = true })
-            vim.keymap.set('n', '<Esc>', close_message_output, { buffer = message_output.buf, silent = true, nowait = true })
-        end
-
         local render_statusline_parts = function(parts)
             local chunks = {}
 
@@ -292,14 +118,6 @@ return {
             end
 
             return table.concat(chunks, ' ')
-        end
-
-        _G.UserTopMessageParts = function()
-            if top_message.text == '' then
-                return {}
-            end
-
-            return { { text = top_message.text, hl = top_message.hl } }
         end
 
         _G.UserWinbarParts = function()
@@ -327,14 +145,7 @@ return {
         end
 
         _G.UserWinbar = function()
-            local winbar = render_statusline_parts(_G.UserWinbarParts())
-            local message = render_statusline_parts(_G.UserTopMessageParts())
-
-            if message ~= '' then
-                return winbar .. '%=' .. message
-            end
-
-            return winbar
+            return render_statusline_parts(_G.UserWinbarParts())
         end
 
         _G.UserStatusSeparator = function()
@@ -356,12 +167,6 @@ return {
             vim.api.nvim_set_hl(0, 'UserModeReplace', { fg = '#e06c75', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserModeCommand', { fg = '#e5c07b', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserModeTerminal', { fg = '#56b6c2', bg = 'NONE', bold = true })
-            vim.api.nvim_set_hl(0, 'UserTopMessage', { fg = foreground, bg = 'NONE' })
-            vim.api.nvim_set_hl(0, 'UserTopError', { fg = '#e06c75', bg = 'NONE' })
-            vim.api.nvim_set_hl(0, 'UserTopWarning', { fg = '#e5c07b', bg = 'NONE' })
-            vim.api.nvim_set_hl(0, 'UserTopCommand', { fg = '#61afef', bg = 'NONE' })
-            vim.api.nvim_set_hl(0, 'UserMessageOutput', { fg = foreground, bg = 'NONE' })
-            vim.api.nvim_set_hl(0, 'UserMessageOutputBorder', { fg = '#ffffff', bg = 'NONE' })
         end
 
         vim.opt.laststatus = 0
@@ -447,9 +252,6 @@ return {
             if overlay and overlay.win and vim.api.nvim_win_is_valid(overlay.win) then
                 vim.api.nvim_win_close(overlay.win, true)
             end
-            if overlay and overlay.message_win and vim.api.nvim_win_is_valid(overlay.message_win) then
-                vim.api.nvim_win_close(overlay.message_win, true)
-            end
             overlay_by_win[win] = nil
         end
 
@@ -497,46 +299,6 @@ return {
                 overlay.win = vim.api.nvim_open_win(overlay.buf, false, config)
                 vim.api.nvim_win_set_option(overlay.win, 'winhighlight', 'Normal:WinBar,NormalFloat:WinBar')
             end
-
-            local message_parts = _G.UserTopMessageParts()
-            if #message_parts == 0 then
-                if overlay.message_win and vim.api.nvim_win_is_valid(overlay.message_win) then
-                    vim.api.nvim_win_close(overlay.message_win, true)
-                end
-                overlay.message_win = nil
-                return
-            end
-
-            local message_label = parts_label(message_parts)
-            local message_max_width = math.max(width, 1)
-            local message_width = math.min(vim.fn.strdisplaywidth(message_label), message_max_width)
-            local message_col = math.max(width - message_width, 0)
-
-            if not overlay.message_buf or not vim.api.nvim_buf_is_valid(overlay.message_buf) then
-                overlay.message_buf = vim.api.nvim_create_buf(false, true)
-            end
-
-            vim.api.nvim_buf_set_lines(overlay.message_buf, 0, -1, false, { message_label })
-            apply_overlay_highlights(overlay.message_buf, message_parts)
-
-            local message_config = {
-                relative = 'win',
-                win = win,
-                row = 1,
-                col = message_col,
-                width = message_width,
-                height = 1,
-                focusable = false,
-                style = 'minimal',
-                zindex = 60,
-            }
-
-            if overlay.message_win and vim.api.nvim_win_is_valid(overlay.message_win) then
-                vim.api.nvim_win_set_config(overlay.message_win, message_config)
-            else
-                overlay.message_win = vim.api.nvim_open_win(overlay.message_buf, false, message_config)
-                vim.api.nvim_win_set_option(overlay.message_win, 'winhighlight', 'Normal:WinBar,NormalFloat:WinBar')
-            end
         end
 
         local apply_winbar = function(win, use_native_winbar)
@@ -572,8 +334,6 @@ return {
             end
         end
 
-        refresh_winbars = apply_winbars
-
         vim.opt.winbar = ''
         apply_winbars()
 
@@ -606,86 +366,5 @@ return {
                 vim.api.nvim_win_set_option(0, 'winbar', '')
             end,
         })
-
-        local message_hl = function(kind)
-            if kind == 'emsg' or kind == 'echoerr' or kind == 'lua_error' or kind == 'rpc_error' then
-                return 'UserTopError'
-            end
-            if kind == 'wmsg' then
-                return 'UserTopWarning'
-            end
-            return 'UserTopMessage'
-        end
-
-        if vim.ui_attach then
-            local message_ns = vim.api.nvim_create_namespace('UserTopMessages')
-            pcall(vim.ui_attach, message_ns, { ext_messages = true }, function(event, ...)
-                if event == 'msg_show' then
-                    local kind, content = ...
-                    local text = content_text(content)
-                    if text ~= '' and kind ~= 'return_prompt' then
-                        vim.schedule(function()
-                            if kind == 'list_cmd' or text:find('\n', 1, true) then
-                                show_message_output(text)
-                            else
-                                set_top_message(text, message_hl(kind), 3000)
-                            end
-                        end)
-                    end
-                elseif event == 'msg_clear' then
-                    vim.schedule(function()
-                        if not cmdline_active and not has_timed_top_message() then
-                            set_top_message('')
-                        end
-                    end)
-                elseif event == 'cmdline_show' then
-                    local content, _, firstc, prompt = ...
-                    vim.schedule(function()
-                        cmdline_active = true
-                        if firstc == ':' then
-                            bottom_cmdline_active = true
-                            bottom_cmdline_prefix = (firstc or '') .. (prompt or '')
-                        end
-                        local text = (firstc or '') .. (prompt or '') .. content_text(content)
-                        if bottom_cmdline_active then
-                            text = bottom_cmdline_prefix .. content_text(content)
-                            show_bottom_cmdline(text)
-                        else
-                            set_top_message(text, 'UserTopCommand')
-                        end
-                    end)
-                elseif event == 'cmdline_hide' then
-                    vim.schedule(function()
-                        cmdline_active = false
-                        bottom_cmdline_active = false
-                        bottom_cmdline_prefix = ''
-                        close_bottom_cmdline()
-                        if not has_timed_top_message() then
-                            set_top_message('')
-                        end
-                    end)
-                elseif event == 'cmdline_block_show' then
-                    local lines = ...
-                    local text = {}
-                    for _, line in ipairs(lines or {}) do
-                        table.insert(text, content_text(line))
-                    end
-                    vim.schedule(function()
-                        set_top_message(table.concat(text, ' '), 'UserTopCommand')
-                    end)
-                elseif event == 'cmdline_block_append' then
-                    local line = ...
-                    vim.schedule(function()
-                        set_top_message(content_text(line), 'UserTopCommand')
-                    end)
-                elseif event == 'cmdline_block_hide' then
-                    vim.schedule(function()
-                        if cmdline_active and not has_timed_top_message() then
-                            set_top_message('')
-                        end
-                    end)
-                end
-            end)
-        end
     end,
 }
