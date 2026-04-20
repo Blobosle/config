@@ -228,6 +228,9 @@ return {
 
         local show_message_output = function(text)
             local lines = vim.split(text:gsub('\r\n', '\n'), '\n', { plain = true })
+            while #lines > 1 and lines[1] == '' do
+                table.remove(lines, 1)
+            end
             while #lines > 1 and lines[#lines] == '' do
                 table.remove(lines)
             end
