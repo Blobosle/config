@@ -105,11 +105,89 @@ return {
                 mode_hls[mode] or mode_hls[mode:sub(1, 1)] or 'UserModeNormal'
         end
 
+        local apply_winbars
+        local top_message = {
+            text = nil,
+            timer = nil,
+        }
+
+        local refresh_winbars = function()
+            if apply_winbars then
+                vim.schedule(apply_winbars)
+            end
+        end
+
+        local clear_top_message = function(message)
+            if message ~= nil and top_message.text ~= message then
+                return
+            end
+
+            top_message.text = nil
+            refresh_winbars()
+        end
+
+        local show_top_message = function(message)
+            message = vim.trim((message or ''):gsub('[\r\n]+', ' '):gsub('%s+', ' '))
+            if message == '' then
+                return
+            end
+
+            top_message.text = message
+            if not top_message.timer then
+                top_message.timer = vim.uv.new_timer()
+            else
+                top_message.timer:stop()
+            end
+
+            top_message.timer:start(3500, 0, function()
+                vim.schedule(function()
+                    clear_top_message(message)
+                end)
+            end)
+
+            refresh_winbars()
+        end
+
+        local last_messages = nil
+        local latest_message_line = function(messages)
+            local latest = nil
+            for line in vim.gsplit(messages or '', '\n', { plain = true, trimempty = true }) do
+                local trimmed = vim.trim(line)
+                if trimmed ~= '' then
+                    latest = trimmed
+                end
+            end
+
+            return latest
+        end
+
+        local capture_status_message = function()
+            local ok, messages = pcall(vim.fn.execute, 'messages', 'silent')
+            if not ok or messages == last_messages then
+                return
+            end
+
+            last_messages = messages
+            local status_message = vim.trim(vim.v.statusmsg or '')
+            if status_message == '' then
+                return
+            end
+
+            local latest = latest_message_line(messages)
+            if latest == status_message then
+                show_top_message(status_message)
+            end
+        end
+
+        local escape_statusline_text = function(text)
+            return text:gsub('%%', '%%%%')
+        end
+
         local render_statusline_parts = function(parts)
             local chunks = {}
 
             for _, part in ipairs(parts) do
-                local text = part.text:gsub('%%', '%%%%')
+                local text = escape_statusline_text(part.text)
                 if part.hl then
                     table.insert(chunks, '%#' .. part.hl .. '#' .. text .. '%#WinBar#')
                 else
@@ -148,6 +226,15 @@ return {
             return render_statusline_parts(_G.UserWinbarParts())
         end
 
+        _G.UserWinbarWithMessage = function()
+            local winbar = _G.UserWinbar()
+            if not top_message.text then
+                return winbar
+            end
+
+            return winbar .. '%=%#UserStatusMessage#' .. escape_statusline_text(top_message.text) .. '%#WinBar#'
+        end
+
         _G.UserStatusSeparator = function()
             return string.rep('─', math.max(vim.api.nvim_win_get_width(0), 1))
         end
@@ -167,15 +254,17 @@ return {
             vim.api.nvim_set_hl(0, 'UserModeReplace', { fg = '#e06c75', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserModeCommand', { fg = '#e5c07b', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserModeTerminal', { fg = '#56b6c2', bg = 'NONE', bold = true })
+            vim.api.nvim_set_hl(0, 'UserStatusMessage', { fg = foreground, bg = 'NONE', bold = false })
         end
 
         vim.opt.laststatus = 0
-        vim.opt.cmdheight = 1
+        vim.opt.cmdheight = 0
         vim.opt.showmode = false
         vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
-        local left_winbar = '%{%v:lua.UserWinbar()%}'
+        local left_winbar = '%{%v:lua.UserWinbarWithMessage()%}'
         local overlay_by_win = {}
+        local message_overlay_by_win = {}
         local overlay_ns = vim.api.nvim_create_namespace('UserWinbarOverlay')
 
         local parts_label = function(parts)
@@ -255,6 +344,14 @@ return {
             overlay_by_win[win] = nil
         end
 
+        local close_message_overlay = function(win)
+            local overlay = message_overlay_by_win[win]
+            if overlay and overlay.win and vim.api.nvim_win_is_valid(overlay.win) then
+                vim.api.nvim_win_close(overlay.win, true)
+            end
+            message_overlay_by_win[win] = nil
+        end
+
         local update_overlay = function(win)
             if should_skip_winbar(win) then
                 close_overlay(win)
@@ -301,6 +398,48 @@ return {
             end
         end
 
+        local update_message_overlay = function(win, use_native_winbar)
+            if should_skip_winbar(win) or not top_message.text then
+                close_message_overlay(win)
+                return
+            end
+
+            local width = vim.api.nvim_win_get_width(win)
+            local height = vim.api.nvim_win_get_height(win)
+            local label_width = math.min(vim.fn.strdisplaywidth(top_message.text), width)
+            local row = use_native_winbar and 0 or 1
+            if row >= height then
+                row = 0
+            end
+
+            local overlay = message_overlay_by_win[win]
+            if not overlay or not overlay.buf or not vim.api.nvim_buf_is_valid(overlay.buf) then
+                overlay = { buf = vim.api.nvim_create_buf(false, true) }
+                message_overlay_by_win[win] = overlay
+            end
+
+            vim.api.nvim_buf_set_lines(overlay.buf, 0, -1, false, { top_message.text })
+
+            local config = {
+                relative = 'win',
+                win = win,
+                row = row,
+                col = math.max(width - label_width, 0),
+                width = label_width,
+                height = 1,
+                focusable = false,
+                style = 'minimal',
+                zindex = 61,
+            }
+
+            if overlay.win and vim.api.nvim_win_is_valid(overlay.win) then
+                vim.api.nvim_win_set_config(overlay.win, config)
+            else
+                overlay.win = vim.api.nvim_open_win(overlay.buf, false, config)
+                vim.api.nvim_win_set_option(overlay.win, 'winhighlight', 'Normal:UserStatusMessage,NormalFloat:UserStatusMessage')
+            end
+        end
+
         local apply_winbar = function(win, use_native_winbar)
             if not vim.api.nvim_win_is_valid(win) then
                 return
@@ -309,16 +448,19 @@ return {
             if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win) then
                 vim.api.nvim_win_set_option(win, 'winbar', '')
                 close_overlay(win)
+                close_message_overlay(win)
             elseif use_native_winbar then
                 close_overlay(win)
+                close_message_overlay(win)
                 vim.api.nvim_win_set_option(win, 'winbar', left_winbar)
             else
                 vim.api.nvim_win_set_option(win, 'winbar', '')
                 update_overlay(win)
+                update_message_overlay(win, use_native_winbar)
             end
         end
 
-        local apply_winbars = function()
+        apply_winbars = function()
             local use_native_winbar = has_vertical_split()
             local active_wins = {}
 
@@ -332,10 +474,17 @@ return {
                     close_overlay(win)
                 end
             end
+
+            for win, _ in pairs(message_overlay_by_win) do
+                if not active_wins[win] then
+                    close_message_overlay(win)
+                end
+            end
         end
 
         vim.opt.winbar = ''
         apply_winbars()
+        last_messages = vim.fn.execute('messages', 'silent')
 
         set_transparent_bar()
         vim.api.nvim_create_autocmd('ColorScheme', {
@@ -358,6 +507,19 @@ return {
             group = winbar_grp,
             callback = function()
                 vim.schedule(apply_winbars)
+            end,
+        })
+        vim.api.nvim_create_autocmd({
+            'BufWritePost',
+            'CmdlineLeave',
+            'QuickFixCmdPost',
+            'ShellCmdPost',
+            'TextChanged',
+            'TextChangedI',
+        }, {
+            group = winbar_grp,
+            callback = function()
+                vim.schedule(capture_status_message)
             end,
         })
         vim.api.nvim_create_autocmd('CmdwinEnter', {
