@@ -126,6 +126,133 @@ local function find_files_with_parent()
     require('telescope.builtin').find_files(opts)
 end
 
+local function parent_prefix_levels(prefix)
+    local normalized = prefix:gsub('/+$', '')
+    if normalized == '' or normalized:match('//') then
+        return nil
+    end
+
+    local levels = 0
+    for segment in normalized:gmatch('[^/]+') do
+        if segment ~= '..' then
+            return nil
+        end
+
+        levels = levels + 1
+    end
+
+    if levels == 0 then
+        return nil
+    end
+
+    return levels
+end
+
+local function grep_parent_prompt_parts(prompt)
+    local prefix, rest = prompt:match('^(%S+)%s+(.*)$')
+    if not prefix then
+        return 0, prompt
+    end
+
+    local levels = parent_prefix_levels(prefix)
+    if not levels then
+        return 0, prompt
+    end
+
+    return levels, rest
+end
+
+local function prompt_cwd(base_cwd, levels)
+    local next_cwd = base_cwd
+
+    for _ = 1, levels do
+        next_cwd = vim.fn.fnamemodify(next_cwd, ':h')
+    end
+
+    return next_cwd
+end
+
+local function grep_entry_maker(opts, cwd)
+    return require('telescope.make_entry').gen_from_vimgrep(vim.tbl_extend('force', opts or {}, {
+        cwd = cwd,
+    }))
+end
+
+local function live_grep_args_with_parent()
+    local prompt_parser = require('telescope-live-grep-args.prompt_parser')
+    local pickers = require('telescope.pickers')
+    local finders = require('telescope.finders')
+    local sorters = require('telescope.sorters')
+    local conf = require('telescope.config').values
+
+    local cwd = buf_dir()
+    local current_finder_key = cwd
+    local picker
+
+    local opts = {
+        auto_quoting = true,
+        cwd = cwd,
+        vimgrep_arguments = conf.vimgrep_arguments,
+    }
+
+    local function cmd_generator(prompt)
+        if not prompt or prompt == '' then
+            return nil
+        end
+
+        return vim.tbl_flatten({
+            vim.deepcopy(opts.vimgrep_arguments),
+            prompt_parser.parse(prompt, opts.auto_quoting),
+            opts.search_dirs,
+        })
+    end
+
+    opts.entry_maker = grep_entry_maker(opts, cwd)
+    local sorter = sorters.highlighter_only(opts)
+    local highlighter = sorter.highlighter
+    if highlighter then
+        sorter.highlighter = function(_, prompt, display)
+            local _, rest = grep_parent_prompt_parts(prompt)
+            return highlighter(sorter, rest, display)
+        end
+    end
+
+    opts.on_input_filter_cb = function(prompt)
+        local levels, rest = grep_parent_prompt_parts(prompt)
+        local next_finder_key = prompt_cwd(cwd, levels)
+
+        if next_finder_key == current_finder_key then
+            return { prompt = rest }
+        end
+
+        current_finder_key = next_finder_key
+        if picker then
+            picker.cwd = next_finder_key
+        end
+
+        return {
+            prompt = rest,
+            updated_finder = finders.new_job(
+                cmd_generator,
+                grep_entry_maker(opts, next_finder_key),
+                opts.max_results,
+                next_finder_key
+            ),
+        }
+    end
+
+    pickers.new(opts, {
+        prompt_title = 'Live Grep (Args)',
+        finder = finders.new_job(cmd_generator, opts.entry_maker, opts.max_results, cwd),
+        previewer = conf.grep_previewer(opts),
+        sorter = sorter,
+        attach_mappings = function(prompt_bufnr)
+            picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+            return true
+        end,
+    }):find()
+end
+
 local function find_dirs_here()
     local pickers = require("telescope.pickers")
     local finders = require("telescope.finders")
@@ -169,9 +296,7 @@ return {
         },
 
         { "<C-g>", function()
-                require('telescope').extensions.live_grep_args.live_grep_args({
-                    cwd = buf_dir(),
-                })
+                live_grep_args_with_parent()
             end,
             desc = "Telescope grep (args) here"
         },
