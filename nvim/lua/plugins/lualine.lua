@@ -148,6 +148,10 @@ return {
             refresh_winbars()
         end
 
+        local has_timed_top_message = function()
+            return top_message_timer and not top_message_timer:is_closing()
+        end
+
         local render_statusline_parts = function(parts)
             local chunks = {}
 
@@ -497,7 +501,7 @@ return {
                     end
                 elseif event == 'msg_clear' then
                     vim.schedule(function()
-                        if not cmdline_active then
+                        if not cmdline_active and not has_timed_top_message() then
                             set_top_message('')
                         end
                     end)
@@ -510,7 +514,9 @@ return {
                 elseif event == 'cmdline_hide' then
                     vim.schedule(function()
                         cmdline_active = false
-                        set_top_message('')
+                        if not has_timed_top_message() then
+                            set_top_message('')
+                        end
                     end)
                 elseif event == 'cmdline_block_show' then
                     local lines = ...
@@ -528,7 +534,7 @@ return {
                     end)
                 elseif event == 'cmdline_block_hide' then
                     vim.schedule(function()
-                        if cmdline_active then
+                        if cmdline_active and not has_timed_top_message() then
                             set_top_message('')
                         end
                     end)
