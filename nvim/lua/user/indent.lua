@@ -5,7 +5,7 @@ vim.api.nvim_create_autocmd("BufWritePre", {
         local filetype = vim.bo.filetype
         if filetype ~= "txt" then
             local cursor_pos = vim.api.nvim_win_get_cursor(0)
-            vim.cmd([[%s/\s\+$//e]])
+            vim.cmd([[silent! keepjumps keeppatterns %s/\s\+$//e]])
             vim.api.nvim_win_set_cursor(0, cursor_pos)
         end
     end,
@@ -39,5 +39,3 @@ vim.api.nvim_create_autocmd("FileType", {
 --         vim.opt_local.expandtab  = true
 --     end,
 -- })
-
-

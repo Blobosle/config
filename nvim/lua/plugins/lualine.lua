@@ -180,6 +180,23 @@ return {
             end
         end
 
+        local show_write_message = function(ev)
+            local file = ev and ev.file or vim.api.nvim_buf_get_name(0)
+            if file == '' then
+                return
+            end
+
+            local display = vim.fn.fnamemodify(file, ':~:.')
+            local line_count = vim.api.nvim_buf_line_count(ev.buf)
+            local byte_count = vim.fn.getfsize(file)
+
+            if byte_count >= 0 then
+                show_top_message(string.format('"%s" %dL, %dB written', display, line_count, byte_count))
+            else
+                show_top_message(string.format('"%s" written', display))
+            end
+        end
+
         local escape_statusline_text = function(text)
             return text:gsub('%%', '%%%%')
         end
@@ -260,6 +277,7 @@ return {
 
         vim.opt.laststatus = 0
         vim.opt.cmdheight = 0
+        vim.opt.shortmess:append('W')
         vim.opt.showmode = false
         vim.opt.statusline = '%#StatusLine#%{%v:lua.UserStatusSeparator()%}'
 
@@ -510,8 +528,11 @@ return {
                 vim.schedule(apply_winbars)
             end,
         })
+        vim.api.nvim_create_autocmd('BufWritePost', {
+            group = winbar_grp,
+            callback = show_write_message,
+        })
         vim.api.nvim_create_autocmd({
-            'BufWritePost',
             'CmdlineLeave',
             'QuickFixCmdPost',
             'ShellCmdPost',

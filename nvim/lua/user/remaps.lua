@@ -52,8 +52,8 @@ vim.opt.makeprg = "gcc % && ./a.out"
 -- Commands to shorten Vim editor writing and exits
 vim.api.nvim_set_keymap('n', 'ZC', ':q<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', 'ZX', ':q!<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', 'ZA', ':w<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', 'Ñ', ':w<CR>', { noremap = true, silent = true })
+vim.keymap.set('n', 'ZA', '<Cmd>silent write<CR>', { noremap = true, silent = true })
+vim.keymap.set('n', 'Ñ', '<Cmd>silent write<CR>', { noremap = true, silent = true })
 
 -- Visual block shifting with indentation
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
