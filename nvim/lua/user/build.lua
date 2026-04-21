@@ -188,7 +188,8 @@ local function input_float(title, prompt, default, on_submit)
     vim.bo[buf].swapfile = false
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, line })
     vim.api.nvim_buf_add_highlight(buf, -1, "Comment", 0, 0, -1)
-    vim.api.nvim_win_set_cursor(win, { 2, #line })
+    vim.wo[win].virtualedit = "onemore"
+    vim.api.nvim_win_set_cursor(win, { 2, #line + 1 })
 
     local function submit()
         local value = vim.trim(vim.api.nvim_buf_get_lines(buf, 1, 2, false)[1] or "")
