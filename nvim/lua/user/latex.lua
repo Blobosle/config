@@ -1,7 +1,12 @@
 -- Compile the current buffer with pdflatex (×3) without blocking Neovim
 vim.api.nvim_create_user_command('Latex', function()
   if vim.fn.expand('%:e') ~= 'tex' then
-    vim.notify('Skipping LaTeX compilation.', vim.log.levels.WARN)
+    local message = 'Skipping LaTeX compilation.'
+    if _G.UserShowTopMessage then
+      _G.UserShowTopMessage(message)
+    else
+      vim.notify(message, vim.log.levels.WARN)
+    end
     return
   end
 
