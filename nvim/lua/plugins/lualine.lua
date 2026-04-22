@@ -314,7 +314,7 @@ return {
             end
         end
 
-        local should_skip_winbar = function(win)
+        local should_skip_winbar = function(win, allow_netrw)
             if not vim.api.nvim_win_is_valid(win) then
                 return true
             end
@@ -331,7 +331,7 @@ return {
             end
 
             local filetype = vim.bo[buf].filetype
-            return filetype == 'netrw'
+            return (filetype == 'netrw' and not allow_netrw)
                 or filetype == 'TelescopePrompt'
                 or filetype == 'TelescopeResults'
                 or filetype == 'TelescopePreview'
@@ -372,7 +372,7 @@ return {
         end
 
         local update_overlay = function(win)
-            if should_skip_winbar(win) then
+            if should_skip_winbar(win, true) then
                 close_overlay(win)
                 return
             end
@@ -418,7 +418,7 @@ return {
         end
 
         local update_message_overlay = function(win, use_native_winbar)
-            if should_skip_winbar(win) or not top_message.text then
+            if should_skip_winbar(win, not use_native_winbar) or not top_message.text then
                 close_message_overlay(win)
                 return
             end
@@ -464,7 +464,7 @@ return {
                 return
             end
 
-            if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win) then
+            if vim.fn.getcmdwintype() ~= '' or should_skip_winbar(win, not use_native_winbar) then
                 vim.api.nvim_win_set_option(win, 'winbar', '')
                 close_overlay(win)
                 close_message_overlay(win)
