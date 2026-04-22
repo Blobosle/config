@@ -179,17 +179,28 @@ local function sh_stream_in_split(cmd, opts)
     end
 end
 
+local function sh_complete(arglead, cmdline, cursorpos)
+    local before_cursor = cmdline:sub(1, cursorpos)
+    local args = before_cursor:gsub("^%s*%S+%s*", "")
+
+    if not args:find("%s") then
+        return vim.fn.getcompletion(arglead, "shellcmd")
+    end
+
+    return vim.fn.getcompletion(arglead, "file")
+end
+
 vim.api.nvim_create_user_command("Sh", function(args)
     sh_stream_in_split(args.args, { height = 20 })
-end, { nargs = "+", complete = "shellcmd" })
+end, { nargs = "+", complete = sh_complete })
 
 vim.api.nvim_create_user_command("ShIn", function(args)
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
-end, { nargs = "+", complete = "shellcmd" })
+end, { nargs = "+", complete = sh_complete })
 
 vim.api.nvim_create_user_command("ShR", function(args)
     local l1, l2 = args.line1, args.line2
     local lines = vim.api.nvim_buf_get_lines(0, l1 - 1, l2, false)
     sh_stream_in_split(args.args, { height = 20, stdin_lines = lines })
-end, { nargs = "+", range = true, complete = "shellcmd" })
+end, { nargs = "+", range = true, complete = sh_complete })
