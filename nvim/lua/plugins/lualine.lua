@@ -108,6 +108,7 @@ return {
         local apply_winbars
         local top_message = {
             text = nil,
+            hl = nil,
             timer = nil,
         }
 
@@ -123,6 +124,7 @@ return {
             end
 
             top_message.text = nil
+            top_message.hl = nil
             refresh_winbars()
         end
 
@@ -133,6 +135,7 @@ return {
             end
 
             top_message.text = message
+            top_message.hl = message:match('^E%d+:') and 'UserStatusError' or 'UserStatusMessage'
             if not top_message.timer then
                 top_message.timer = vim.uv.new_timer()
             else
@@ -162,6 +165,66 @@ return {
             return latest
         end
 
+        local search_errors = { E35 = true, E384 = true, E385 = true, E486 = true }
+        local is_search_error = function(message)
+            return search_errors[message:match('^(E%d+):')]
+        end
+
+        local run_forward_search = function(pattern)
+            if pattern == '' then
+                pattern = vim.fn.getreg('/')
+            else
+                vim.fn.histadd('search', pattern)
+                vim.fn.setreg('/', pattern)
+            end
+
+            if pattern == '' then
+                show_top_message('E35: No previous regular expression')
+                return
+            end
+
+            vim.v.searchforward = 1
+            local ok, result = pcall(vim.fn.search, pattern)
+            if not ok then
+                show_top_message(vim.trim(tostring(result):gsub('^Vim%w*:%s*', '')))
+            elseif result == 0 then
+                show_top_message('E486: Pattern not found: ' .. pattern)
+            else
+                vim.opt.hlsearch = true
+                refresh_winbars()
+            end
+        end
+
+        local repeat_search = function(key)
+            vim.v.errmsg = ''
+            vim.cmd('silent! normal! ' .. key)
+
+            local error_message = vim.trim(vim.v.errmsg or '')
+            if error_message ~= '' and is_search_error(error_message) then
+                show_top_message(error_message)
+            end
+        end
+
+        vim.keymap.set('c', '<CR>', function()
+            if vim.fn.getcmdtype() ~= '/' then
+                return '<CR>'
+            end
+
+            local pattern = vim.fn.getcmdline()
+            vim.schedule(function()
+                run_forward_search(pattern)
+                vim.cmd('redraw!')
+            end)
+
+            return vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+        end, { expr = true, noremap = true })
+
+        for _, key in ipairs({ 'n', 'N' }) do
+            vim.keymap.set('n', key, function()
+                repeat_search(key)
+            end, { noremap = true, silent = true })
+        end
+
         local capture_status_message = function()
             local ok, messages = pcall(vim.fn.execute, 'messages', 'silent')
             if not ok or messages == last_messages then
@@ -170,13 +233,13 @@ return {
 
             last_messages = messages
             local status_message = vim.trim(vim.v.statusmsg or '')
-            if status_message == '' then
-                return
-            end
+            local error_message = vim.trim(vim.v.errmsg or '')
 
             local latest = latest_message_line(messages)
-            if latest == status_message then
+            if status_message ~= '' and latest == status_message then
                 show_top_message(status_message)
+            elseif error_message ~= '' and latest == error_message and is_search_error(error_message) then
+                show_top_message(error_message)
             end
         end
 
@@ -250,7 +313,7 @@ return {
                 return winbar
             end
 
-            return winbar .. '%=%#UserStatusMessage#' .. escape_statusline_text(top_message.text) .. '%#WinBar#'
+            return winbar .. '%=%#' .. top_message.hl .. '#' .. escape_statusline_text(top_message.text) .. '%#WinBar#'
         end
 
         _G.UserStatusSeparator = function()
@@ -273,6 +336,7 @@ return {
             vim.api.nvim_set_hl(0, 'UserModeCommand', { fg = '#e5c07b', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserModeTerminal', { fg = '#56b6c2', bg = 'NONE', bold = true })
             vim.api.nvim_set_hl(0, 'UserStatusMessage', { fg = foreground, bg = 'NONE', bold = false })
+            vim.api.nvim_set_hl(0, 'UserStatusError', { fg = '#e06c75', bg = 'NONE', bold = false })
         end
 
         vim.opt.laststatus = 0
@@ -455,8 +519,8 @@ return {
                 vim.api.nvim_win_set_config(overlay.win, config)
             else
                 overlay.win = vim.api.nvim_open_win(overlay.buf, false, config)
-                vim.api.nvim_win_set_option(overlay.win, 'winhighlight', 'Normal:UserStatusMessage,NormalFloat:UserStatusMessage')
             end
+            vim.api.nvim_win_set_option(overlay.win, 'winhighlight', 'Normal:' .. top_message.hl .. ',NormalFloat:' .. top_message.hl)
         end
 
         local apply_winbar = function(win, use_native_winbar)
