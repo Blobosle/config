@@ -220,7 +220,7 @@ local function suggested_command(root)
         return "go build ./..."
     end
     if vim.fn.filereadable(root .. "/package.json") == 1 then
-        return "npm run build"
+        return "npm run dev"
     end
     if vim.fn.filereadable(root .. "/CMakeLists.txt") == 1 then
         return "cmake --build build"
