@@ -402,9 +402,13 @@ return {
                 or filetype == 'prompt'
             end
 
+        local current_tab_wins = function()
+            return vim.api.nvim_tabpage_list_wins(vim.api.nvim_get_current_tabpage())
+        end
+
         local has_vertical_split = function()
             local rows = {}
-            for _, win in ipairs(vim.api.nvim_list_wins()) do
+            for _, win in ipairs(current_tab_wins()) do
                 if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_config(win).relative == '' then
                     local pos = vim.api.nvim_win_get_position(win)
                     local row = pos[1]
@@ -547,7 +551,7 @@ return {
             local use_native_winbar = has_vertical_split()
             local active_wins = {}
 
-            for _, win in ipairs(vim.api.nvim_list_wins()) do
+            for _, win in ipairs(current_tab_wins()) do
                 active_wins[win] = true
                 apply_winbar(win, use_native_winbar)
             end

@@ -22,6 +22,45 @@ local function find_command()
     end
 end
 
+local function find_dirs_command()
+    if vim.fn.executable('fd') == 1 then
+        return {
+            'fd',
+            '--type', 'd',
+            '--strip-cwd-prefix',
+            '--exclude', 'node_modules',
+            '--exclude', '.git',
+            '.',
+        }
+    end
+    if vim.fn.executable('fdfind') == 1 then
+        return {
+            'fdfind',
+            '--type', 'd',
+            '--strip-cwd-prefix',
+            '--exclude', 'node_modules',
+            '--exclude', '.git',
+            '.',
+        }
+    end
+    if vim.fn.executable('find') == 1 and vim.fn.has('win32') == 0 then
+        return {
+            'find',
+            '.',
+            '(',
+            '-name', 'node_modules',
+            '-o',
+            '-name', '.git',
+            ')',
+            '-prune',
+            '-o',
+            '-mindepth', '1',
+            '-type', 'd',
+            '-print',
+        }, true
+    end
+end
+
 local function file_entry_maker(opts, cwd)
     return require('telescope.make_entry').gen_from_file(vim.tbl_extend('force', opts or {}, {
         cwd = cwd,
@@ -256,24 +295,28 @@ end
 local function find_dirs_here()
     local pickers = require("telescope.pickers")
     local finders = require("telescope.finders")
+    local make_entry = require("telescope.make_entry")
     local conf = require("telescope.config").values
 
     local cwd = buf_dir()
+    local command, strip_find_prefix = find_dirs_command()
+    local finder_opts = {
+        cwd = cwd,
+    }
+
+    if strip_find_prefix then
+        local entry_maker = make_entry.gen_from_file({
+            cwd = cwd,
+        })
+
+        finder_opts.entry_maker = function(line)
+            return entry_maker(line:gsub("^%./", ""))
+        end
+    end
 
     pickers.new({}, {
         prompt_title = "Directories",
-        finder = finders.new_oneshot_job({
-            "fd",
-            "--type", "d",
-            "--strip-cwd-prefix",
-
-            "--exclude", "node_modules",
-            "--exclude", ".git",
-
-            ".",
-        }, {
-            cwd = cwd,
-        }),
+        finder = finders.new_oneshot_job(command, finder_opts),
         sorter = conf.generic_sorter({}),
     }):find()
 end

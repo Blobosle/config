@@ -54,6 +54,7 @@ vim.api.nvim_set_keymap('n', 'ZC', ':q<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', 'ZX', ':q!<CR>', { noremap = true, silent = true })
 vim.keymap.set('n', 'ZA', '<Cmd>silent write<CR>', { noremap = true, silent = true })
 vim.keymap.set('n', 'Ñ', '<Cmd>silent write<CR>', { noremap = true, silent = true })
+vim.api.nvim_create_user_command("W", "w", {})
 
 -- Visual block shifting with indentation
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
