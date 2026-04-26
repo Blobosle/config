@@ -8,6 +8,11 @@ vim.api.nvim_create_autocmd("FileType", {
             noremap = true,
             silent = true,
         })
+        vim.keymap.set('n', '<leader>g', '<Nop>', {
+            buffer = ev.buf,
+            noremap = true,
+            silent = true,
+        })
     end,
 })
 
