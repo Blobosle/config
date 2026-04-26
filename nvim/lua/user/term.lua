@@ -103,14 +103,23 @@ vim.api.nvim_set_keymap('t', '<C-q>', [[<C-\><C-n>i exit<CR>]], { noremap = true
 -- Commands for cycling split selection with the new split screen shell instance
 vim.api.nvim_set_keymap('n', '<S-CR>', '<C-w>w', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('t', '<S-CR>', '<C-\\><C-n><C-w>w', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<M-S-CR>', '<C-w>W', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('t', '<M-S-CR>', '<C-\\><C-n><C-w>W', { noremap = true, silent = true })
 
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "netrw",
     callback = function(args)
         vim.schedule(function()
             pcall(vim.keymap.del, "n", "<S-CR>", { buffer = args.buf })
+            pcall(vim.keymap.del, "n", "<M-S-CR>", { buffer = args.buf })
 
             vim.keymap.set("n", "<S-CR>", "<C-w>w", {
+                buffer = args.buf,
+                noremap = true,
+                silent = true,
+            })
+
+            vim.keymap.set("n", "<M-S-CR>", "<C-w>W", {
                 buffer = args.buf,
                 noremap = true,
                 silent = true,
