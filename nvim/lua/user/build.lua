@@ -189,7 +189,14 @@ local function input_float(title, prompt, default, on_submit)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, line })
     vim.api.nvim_buf_add_highlight(buf, -1, "Comment", 0, 0, -1)
     vim.wo[win].virtualedit = "onemore"
-    vim.api.nvim_win_set_cursor(win, { 2, #line + 1 })
+
+    local function place_cursor()
+        if vim.api.nvim_win_is_valid(win) then
+            vim.api.nvim_win_set_cursor(win, { 2, #line + 1 })
+        end
+    end
+
+    place_cursor()
 
     local function submit()
         local value = vim.trim(vim.api.nvim_buf_get_lines(buf, 1, 2, false)[1] or "")
@@ -205,6 +212,7 @@ local function input_float(title, prompt, default, on_submit)
     vim.schedule(function()
         if vim.api.nvim_win_is_valid(win) then
             vim.cmd("startinsert")
+            place_cursor()
         end
     end)
 end
@@ -293,8 +301,7 @@ local function with_project_for_run(callback)
     local matches = stored_projects_for_dir(store, dir)
 
     if #matches == 0 then
-        local root = guess_root(dir)
-        add_command_flow(root, callback)
+        add_command_flow(dir, callback)
         return
     end
 
