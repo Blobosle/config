@@ -52,7 +52,7 @@ vim.keymap.set("i", "<S-Tab>", function()
 end, { expr = true, noremap = true, silent = true })
 
 -- C style make vim command setup
-vim.opt.makeprg = "gcc % && ./a.out"
+vim.opt.makeprg = "gcc %:S && ./a.out"
 
 -- Commands to shorten Vim editor writing and exits
 vim.api.nvim_set_keymap('n', 'ZC', ':q<CR>', { noremap = true, silent = true })

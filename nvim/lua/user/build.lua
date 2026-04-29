@@ -264,6 +264,7 @@ local function run_command(root, command)
     root = normalize(root)
     local original_win = vim.api.nvim_get_current_win()
     local original_dir = vim.fn.getcwd()
+    local expanded_command = vim.fn.expandcmd(command)
 
     vim.cmd("lcd " .. vim.fn.fnameescape(root))
     vim.cmd("vsplit")
@@ -272,7 +273,7 @@ local function run_command(root, command)
     local new_win = vim.api.nvim_get_current_win()
     local buf = vim.api.nvim_get_current_buf()
     local job_id = vim.b[buf].terminal_job_id
-    vim.b[buf].terminal_last_command = command
+    vim.b[buf].terminal_last_command = expanded_command
 
     if vim.api.nvim_win_is_valid(original_win) then
         vim.api.nvim_set_current_win(original_win)
@@ -281,7 +282,7 @@ local function run_command(root, command)
     end
 
     if job_id then
-        vim.api.nvim_chan_send(job_id, command .. "\n")
+        vim.api.nvim_chan_send(job_id, expanded_command .. "\n")
     end
 
     vim.api.nvim_create_autocmd("TermClose", {
