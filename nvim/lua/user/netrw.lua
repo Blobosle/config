@@ -47,6 +47,16 @@ local function rename_path(from, to)
     return 0
 end
 
+local function netrw_target_path()
+    local name = vim.fn.expand("<cfile>")
+    if not name or name == "" then
+        return nil
+    end
+
+    local dir = vim.b.netrw_curdir or vim.fn.getcwd()
+    return normpath(dir .. "/" .. name)
+end
+
 local function retarget_renamed_buffers(from, to)
     local from_path = normpath(from)
     local to_path = normpath(to)
@@ -145,6 +155,24 @@ end, { desc = "Explore in new tab (locked)" })
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "netrw",
     callback = function(ev)
+        local original_x = vim.fn.maparg("x", "n", false, true)
+
+        vim.keymap.set("n", "x", function()
+            local target = netrw_target_path()
+            if target and vim.fn.filereadable(target) == 1 and vim.fn.executable(target) == 1 then
+                _G.run_in_term_vsplit(vim.fn.shellescape(target), vim.fn.fnamemodify(target, ":h"))
+                return
+            end
+
+            if type(original_x) == "table" and original_x.rhs and original_x.rhs ~= "" then
+                local keys = vim.api.nvim_replace_termcodes(original_x.rhs, true, false, true)
+                vim.api.nvim_feedkeys(keys, "n", false)
+                return
+            end
+
+            vim.fn["netrw#BrowseX"](target or vim.fn.expand("<cfile>"), 0)
+        end, { buffer = ev.buf, silent = true })
+
         vim.keymap.set("n", "R", function()
             local name = vim.fn.expand("<cfile>")
             local dir = vim.b.netrw_curdir or vim.fn.getcwd()
