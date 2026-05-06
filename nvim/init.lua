@@ -1,3 +1,9 @@
+vim.filetype.add({
+    pattern = {
+        [".*/[^./]+"] = { "text", { priority = math.huge } },
+    },
+})
+
 require("config.lazy")
 require("user")
 
