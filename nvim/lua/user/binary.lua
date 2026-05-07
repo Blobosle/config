@@ -28,6 +28,10 @@ local function is_binary(path)
         return false
     end
 
+    if mime:match("^application/pdf") then
+        return false
+    end
+
     if mime:match("charset=binary") then
         return true
     end
