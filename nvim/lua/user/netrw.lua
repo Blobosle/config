@@ -66,7 +66,20 @@ local function retarget_renamed_buffers(from, to)
             local name = vim.api.nvim_buf_get_name(target)
             if name ~= "" and samefile_ignoring_case(name, from_path) then
                 vim.api.nvim_buf_call(target, function()
-                    vim.cmd("silent keepalt file " .. vim.fn.fnameescape(to_path))
+                    if vim.bo[target].modified then
+                        vim.cmd("silent keepalt file " .. vim.fn.fnameescape(to_path))
+                        return
+                    end
+
+                    -- :file leaves the buffer in Vim's "not edited" state, which
+                    -- triggers E13 on the next :write. Retarget clean buffers with
+                    -- :saveas! so later saves behave like a normal edited file.
+                    vim.cmd("silent noautocmd keepalt saveas! " .. vim.fn.fnameescape(to_path))
+
+                    local stale = vim.fn.bufnr(from_path)
+                    if stale ~= -1 and stale ~= target and vim.api.nvim_buf_is_valid(stale) then
+                        vim.cmd("silent! bdelete! " .. stale)
+                    end
                 end)
             end
         end
