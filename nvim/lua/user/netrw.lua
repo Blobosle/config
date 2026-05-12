@@ -8,6 +8,84 @@ vim.g.netrw_keepdir = 1
 vim.g.netrw_bufsettings = "noma nomod nonu nobl nowrap ro rnu"
 
 local aug = vim.api.nvim_create_augroup("CwdNetrwGlue", { clear = true })
+local comfy_statuscolumn = '%=%s%=%{v:virtnum > 0 ? "" : v:lua.netrw_comfy_label(v:lnum, v:relnum)} '
+local comfy_labels
+
+local function get_comfy_labels()
+    if comfy_labels then
+        return comfy_labels
+    end
+
+    local ok, comfy = pcall(require, "comfy-line-numbers")
+    comfy_labels = (ok and comfy.config and comfy.config.labels) or {}
+    return comfy_labels
+end
+
+_G.netrw_comfy_label = function(absnum, relnum)
+    local width = vim.wo.numberwidth
+
+    if relnum == 0 then
+        return string.format("%" .. width .. "d", absnum)
+    end
+
+    local labels = get_comfy_labels()
+    if relnum > 0 and relnum <= #labels then
+        return string.format("%" .. width .. "s", labels[relnum])
+    end
+
+    return string.format("%" .. width .. "d", absnum)
+end
+
+local function clear_netrw_comfy(win)
+    if not win or win == -1 or not vim.api.nvim_win_is_valid(win) then return end
+    if vim.wo[win].statuscolumn ~= comfy_statuscolumn then return end
+    vim.wo[win].statuscolumn = ""
+end
+
+local function apply_netrw_comfy(win, buf)
+    if not win or win == -1 or not vim.api.nvim_win_is_valid(win) then return end
+    if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
+    if vim.bo[buf].filetype ~= "netrw" then return end
+
+    if not vim.wo[win].relativenumber then
+        clear_netrw_comfy(win)
+        return
+    end
+
+    vim.api.nvim_win_call(win, function()
+        vim.wo.numberwidth = math.max(4, #tostring(vim.api.nvim_buf_line_count(buf)))
+        vim.wo.statuscolumn = comfy_statuscolumn
+    end)
+end
+
+local function map_netrw_comfy(buf)
+    if vim.b[buf].comfy_line_numbers_mapped then return end
+
+    for index, label in ipairs(get_comfy_labels()) do
+        vim.keymap.set({ "n", "v", "o" }, label .. "k", index .. "k", {
+            buffer = buf,
+            noremap = true,
+            silent = true,
+        })
+        vim.keymap.set({ "n", "v", "o" }, label .. "<Up>", index .. "k", {
+            buffer = buf,
+            noremap = true,
+            silent = true,
+        })
+        vim.keymap.set({ "n", "v", "o" }, label .. "j", index .. "j", {
+            buffer = buf,
+            noremap = true,
+            silent = true,
+        })
+        vim.keymap.set({ "n", "v", "o" }, label .. "<Down>", index .. "j", {
+            buffer = buf,
+            noremap = true,
+            silent = true,
+        })
+    end
+
+    vim.b[buf].comfy_line_numbers_mapped = true
+end
 
 local function win_lcd(dir)
     if not dir or dir == "" then return end
@@ -109,6 +187,10 @@ vim.api.nvim_create_autocmd("FileType", {
     pattern = "netrw",
     callback = function(ev)
         local buf = ev.buf
+        local win = vim.fn.bufwinid(buf)
+
+        map_netrw_comfy(buf)
+        apply_netrw_comfy(win, buf)
 
         -- open where you last left netrw in this tab
         if vim.t.netrw_lastdir and vim.t.netrw_lastdir ~= "" then
@@ -118,6 +200,7 @@ vim.api.nvim_create_autocmd("FileType", {
         -- netrw updates b:netrw_curdir slightly after FileType fires
         vim.defer_fn(function()
             sync_netrw_dir(buf)
+            apply_netrw_comfy(vim.fn.bufwinid(buf), buf)
         end, 10)
 
         -- keep syncing while inside netrw (so entering dirs updates immediately)
@@ -126,6 +209,7 @@ vim.api.nvim_create_autocmd("FileType", {
             buffer = buf,
             callback = function()
                 sync_netrw_dir(buf)
+                apply_netrw_comfy(vim.fn.bufwinid(buf), buf)
             end,
         })
     end,
@@ -146,6 +230,21 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
 
         local dir = vim.fn.fnamemodify(name, ":p:h")
         pcall(vim.cmd, "cd " .. vim.fn.fnameescape(dir))
+    end,
+})
+
+vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+    group = aug,
+    callback = function()
+        local win = vim.api.nvim_get_current_win()
+        local buf = vim.api.nvim_win_get_buf(win)
+
+        if vim.bo[buf].filetype == "netrw" then
+            apply_netrw_comfy(win, buf)
+            return
+        end
+
+        clear_netrw_comfy(win)
     end,
 })
 
