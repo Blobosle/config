@@ -48,6 +48,22 @@ local function is_executable(path)
     return vim.fn.executable(path) == 1
 end
 
+local function should_preview(path)
+    if not is_binary(path) then
+        return false
+    end
+
+    if is_executable(path) then
+        return true
+    end
+
+    if vim.fn.fnamemodify(path, ":e") ~= "" then
+        return true
+    end
+
+    return file_desc(path) ~= "data"
+end
+
 local function has(cmd)
     return vim.fn.executable(cmd) == 1
 end
@@ -153,7 +169,7 @@ vim.api.nvim_create_autocmd("BufReadPost", {
             return
         end
 
-        if not is_binary(path) then
+        if not should_preview(path) then
             return
         end
 
