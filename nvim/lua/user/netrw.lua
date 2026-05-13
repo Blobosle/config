@@ -180,6 +180,31 @@ local function sync_netrw_dir(buf)
     end
 end
 
+local function refresh_current_view()
+    vim.schedule(function()
+        local win = vim.api.nvim_get_current_win()
+        local buf = vim.api.nvim_get_current_buf()
+        if not buf or not vim.api.nvim_buf_is_valid(buf) then return end
+
+        if vim.bo[buf].filetype ~= "netrw" then
+            vim.cmd("silent! edit")
+            return
+        end
+
+        local dir = vim.b[buf].netrw_curdir or vim.fn.getcwd()
+        local view = vim.fn.winsaveview()
+        vim.fn["netrw#Explore"](0, 0, 0, dir)
+
+        if win and vim.api.nvim_win_is_valid(win) then
+            vim.api.nvim_win_call(win, function()
+                local line_count = vim.api.nvim_buf_line_count(0)
+                view.lnum = math.min(view.lnum, line_count)
+                pcall(vim.fn.winrestview, view)
+            end)
+        end
+    end)
+end
+
 -- When netrw opens: open in last tab dir (if any), then resync (fixes "1 behind"),
 -- then keep syncing while browsing.
 vim.api.nvim_create_autocmd("FileType", {
@@ -318,7 +343,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
                 retarget_renamed_buffers(from, to)
                 vim.cmd("bd!")
-                vim.cmd("silent! edit")
+                refresh_current_view()
             end
 
             vim.keymap.set("n", "<CR>", apply, { buffer = buf, silent = true })
