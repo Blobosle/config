@@ -1,4 +1,5 @@
 for _, m in ipairs({
+    "filetype",
     "remaps",
     "netrw",
     "tab",
