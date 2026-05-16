@@ -23,13 +23,11 @@ local function put_and_land(where)
   local pos = { unpack(vim.api.nvim_buf_get_mark(buf, ']')) }
 
   if rtype == 'V' then
-    pos[1] = pos[1] - 1
-    pos[2] = #vim.fn.getline(pos[1] + 1)
+    pos[2] = #vim.fn.getline(pos[1])
   end
 
-  vim.api.nvim_win_set_cursor(win, { pos[1] + 1, pos[2] })
+  vim.api.nvim_win_set_cursor(win, pos)
 end
 
 -- Remap for cursor jumping paste function
 vim.keymap.set('n', 'p', function() put_and_land('p') end, { desc = 'put & land at end' })
-
