@@ -46,8 +46,28 @@ vim.keymap.set('v', '<C-c>', mark_oscyank .. '<Plug>OSCYankVisual', { remap = tr
 -- Cycling between numerous tabs
 vim.api.nvim_set_keymap('n', 'A', ':tabnext<CR>', { noremap = true, silent = true })
 
+local function shift_tab_indent_blank_line()
+  local lnum = vim.fn.line(".")
+  local width = vim.fn.cindent(lnum)
+
+  if width < 0 then
+    width = 0
+  end
+
+  local indent = string.rep(" ", width)
+  vim.api.nvim_set_current_line(indent)
+  vim.api.nvim_win_set_cursor(0, { lnum, width })
+end
+
+vim.api.nvim_create_user_command("UserShiftTabIndentBlankLine", shift_tab_indent_blank_line, {})
+
 -- Shift tab
 vim.keymap.set("i", "<S-Tab>", function()
+  local line = vim.api.nvim_get_current_line()
+  if line:match("^%s*$") then
+    return vim.api.nvim_replace_termcodes("<C-o>:<C-u>UserShiftTabIndentBlankLine<CR>", true, false, true)
+  end
+
   return vim.api.nvim_replace_termcodes("<Esc>==gi", true, false, true)
 end, { expr = true, noremap = true, silent = true })
 
