@@ -1,14 +1,22 @@
+local cmdwin_preview = require("user.searchreplace")
+
+cmdwin_preview.setup()
+
 vim.keymap.set({'v', 'n'}, ';', ':', { noremap = true })
-vim.keymap.set('n', ':', 'q:i', { noremap = true, silent = true })
-vim.keymap.set('n', '_', 'q:iSh ', { noremap = true, silent = true })
+vim.keymap.set('n', ':', function()
+    return cmdwin_preview.keys()
+end, { expr = true, noremap = true, silent = true })
+vim.keymap.set('n', '_', function()
+    return cmdwin_preview.keys("Sh ")
+end, { expr = true, noremap = true, silent = true })
 
 vim.keymap.set('x', '_', function()
-    vim.api.nvim_feedkeys("q:$aShR ", 'n', false)
-end, { noremap = true, silent = true })
+    return cmdwin_preview.visual_keys("ShR ")
+end, { expr = true, noremap = true, silent = true })
 
 vim.keymap.set('x', ':', function()
-    vim.api.nvim_feedkeys("q:$a", 'n', false)
-end, { noremap = true, silent = true })
+    return cmdwin_preview.visual_keys()
+end, { expr = true, noremap = true, silent = true })
 
 local grp = vim.api.nvim_create_augroup('CmdwinEscQuit', { clear = true })
 vim.api.nvim_create_autocmd('CmdwinEnter', {
