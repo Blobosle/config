@@ -1,6 +1,10 @@
 local ns = vim.api.nvim_create_namespace("user.eof")
 local aug = vim.api.nvim_create_augroup("UserEofLineCount", { clear = true })
 
+local function set_end_of_buffer_hl()
+    vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = "#f7c6d0", bold = false })
+end
+
 local function should_render(buf)
     if not vim.api.nvim_buf_is_valid(buf) then
         return false
@@ -33,6 +37,13 @@ local function render(buf)
         virt_lines_leftcol = true,
     })
 end
+
+set_end_of_buffer_hl()
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+    group = aug,
+    callback = set_end_of_buffer_hl,
+})
 
 vim.api.nvim_create_autocmd({
     "BufEnter",
