@@ -9,7 +9,6 @@ for _, m in ipairs({
     "indent",
     "func-telescope",
     "cmd",
-    "binary",
     "latex",
     "eof",
     "quickfix",
