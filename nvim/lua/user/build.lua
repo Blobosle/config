@@ -463,6 +463,5 @@ end
 vim.api.nvim_create_user_command("Build", M.menu, {})
 
 vim.keymap.set("n", ",", M.run, { noremap = true, silent = true })
-vim.keymap.set("t", ",", [[<C-\><C-n><Cmd>lua require("user.build").run()<CR>]], { noremap = true, silent = true })
 
 return M
