@@ -59,22 +59,39 @@ local function term_label(bufnr)
     return name
 end
 
+local function format_last_used(lastused)
+    if type(lastused) ~= "number" or lastused <= 0 then
+        return "unknown"
+    end
+
+    return os.date("%Y-%m-%d %H:%M", lastused)
+end
+
 local function terminal_buffers()
     local items = {}
 
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buftype == "terminal" then
             local label = term_label(bufnr)
+            local info = vim.fn.getbufinfo(bufnr)[1] or {}
+            local lastused = info.lastused or 0
+            local timestamp = format_last_used(lastused)
             items[#items + 1] = {
                 bufnr = bufnr,
                 label = label,
-                ordinal = label .. " " .. bufnr,
+                lastused = lastused,
+                timestamp = timestamp,
+                ordinal = table.concat({ label, timestamp, bufnr }, " "),
             }
         end
     end
 
     table.sort(items, function(a, b)
-        return a.bufnr < b.bufnr
+        if a.lastused == b.lastused then
+            return a.bufnr > b.bufnr
+        end
+
+        return a.lastused > b.lastused
     end)
 
     return items
@@ -117,6 +134,17 @@ local function open_terminal_buffer_picker()
     local conf = require("telescope.config").values
     local actions = require("telescope.actions")
     local action_state = require("telescope.actions.state")
+    local entry_display = require("telescope.pickers.entry_display")
+
+    vim.api.nvim_set_hl(0, "TerminalBufferTimestamp", { link = "SpecialComment", default = true })
+
+    local displayer = entry_display.create({
+        separator = " ",
+        items = {
+            { remaining = true },
+            { width = 16, right_justify = true },
+        },
+    })
 
     pickers.new({}, {
         prompt_title = "Terminal Buffers",
@@ -126,7 +154,12 @@ local function open_terminal_buffer_picker()
                 return {
                     value = entry,
                     ordinal = entry.ordinal,
-                    display = entry.label,
+                    display = function()
+                        return displayer({
+                            entry.label,
+                            { entry.timestamp, "TerminalBufferTimestamp" },
+                        })
+                    end,
                     bufnr = entry.bufnr,
                 }
             end,
