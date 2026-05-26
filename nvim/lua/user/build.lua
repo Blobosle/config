@@ -18,6 +18,10 @@ local function path_sep()
     return package.config:sub(1, 1)
 end
 
+local function is_dir(path)
+    return path and path ~= "" and vim.fn.isdirectory(path) == 1
+end
+
 local function normalize(path)
     if not path or path == "" then
         return vim.loop.cwd()
@@ -37,6 +41,38 @@ end
 
 local function current_dir()
     local buf = vim.api.nvim_get_current_buf()
+    if vim.bo[buf].buftype == "terminal" then
+        local job_id = vim.b[buf].terminal_job_id
+        if job_id then
+            local pid = vim.fn.jobpid(job_id)
+            if type(pid) == "number" and pid > 0 then
+                local uv = vim.uv or vim.loop
+                local ok, cwd = pcall(uv.fs_realpath, "/proc/" .. pid .. "/cwd")
+                if ok and is_dir(cwd) then
+                    return normalize(cwd)
+                end
+
+                if vim.fn.executable("lsof") == 1 then
+                    ok, cwd = pcall(vim.fn.systemlist, { "lsof", "-a", "-p", tostring(pid), "-d", "cwd", "-Fn" })
+                    if ok and vim.v.shell_error == 0 then
+                        for _, line in ipairs(cwd) do
+                            local dir = line:match("^n(.+)$")
+                            if is_dir(dir) then
+                                return normalize(dir)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        local name = vim.api.nvim_buf_get_name(buf)
+        local launch_dir = name:match("^term://(.-)//%d+:")
+        if is_dir(launch_dir) then
+            return normalize(launch_dir)
+        end
+    end
+
     if vim.bo[buf].filetype == "netrw" then
         local dir = vim.b[buf].netrw_curdir or vim.g.netrw_curdir
         if type(dir) == "string" and dir ~= "" then
@@ -262,16 +298,31 @@ end
 
 local function run_command(root, command)
     root = normalize(root)
+    local expanded_command = vim.fn.expandcmd(command)
+    local buf = vim.api.nvim_get_current_buf()
+
+    if vim.bo[buf].buftype == "terminal" then
+        local job_id = vim.b[buf].terminal_job_id
+        if not job_id then
+            vim.notify("Current terminal has no job to send the build command to", vim.log.levels.ERROR)
+            return
+        end
+
+        vim.b[buf].terminal_last_command = expanded_command
+        vim.api.nvim_chan_send(job_id, ("cd %s && %s\n"):format(vim.fn.shellescape(root), expanded_command))
+        vim.cmd("startinsert")
+        return
+    end
+
     local original_win = vim.api.nvim_get_current_win()
     local original_dir = vim.fn.getcwd()
-    local expanded_command = vim.fn.expandcmd(command)
 
     vim.cmd("lcd " .. vim.fn.fnameescape(root))
     vim.cmd("vsplit")
     vim.cmd("term")
 
     local new_win = vim.api.nvim_get_current_win()
-    local buf = vim.api.nvim_get_current_buf()
+    buf = vim.api.nvim_get_current_buf()
     local job_id = vim.b[buf].terminal_job_id
     vim.b[buf].terminal_last_command = expanded_command
 
@@ -412,5 +463,6 @@ end
 vim.api.nvim_create_user_command("Build", M.menu, {})
 
 vim.keymap.set("n", ",", M.run, { noremap = true, silent = true })
+vim.keymap.set("t", ",", [[<C-\><C-n><Cmd>lua require("user.build").run()<CR>]], { noremap = true, silent = true })
 
 return M
