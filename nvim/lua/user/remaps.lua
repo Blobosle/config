@@ -1,9 +1,50 @@
 -- Split screen remap
-vim.keymap.set('n', 'S', ':vs<CR>', { noremap = true, silent = true })
+local function save_terminal_views()
+    local views = {}
+
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.api.nvim_win_is_valid(win) then
+            local buf = vim.api.nvim_win_get_buf(win)
+
+            if vim.bo[buf].buftype == "terminal" then
+                vim.api.nvim_win_call(win, function()
+                    views[#views + 1] = {
+                        win = win,
+                        buf = buf,
+                        view = vim.fn.winsaveview(),
+                    }
+                end)
+            end
+        end
+    end
+
+    return views
+end
+
+local function restore_terminal_views(views)
+    for _, item in ipairs(views) do
+        if vim.api.nvim_win_is_valid(item.win) and vim.api.nvim_win_get_buf(item.win) == item.buf then
+            vim.api.nvim_win_call(item.win, function()
+                pcall(vim.fn.winrestview, item.view)
+            end)
+        end
+    end
+end
+
+local function vsplit_preserving_terminal_views()
+    local views = save_terminal_views()
+
+    vim.cmd("vsplit")
+    vim.schedule(function()
+        restore_terminal_views(views)
+    end)
+end
+
+vim.keymap.set('n', 'S', vsplit_preserving_terminal_views, { noremap = true, silent = true })
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "netrw",
     callback = function(ev)
-        vim.keymap.set('n', 'S', '<Cmd>vsplit<CR>', {
+        vim.keymap.set('n', 'S', vsplit_preserving_terminal_views, {
             buffer = ev.buf,
             noremap = true,
             silent = true,
