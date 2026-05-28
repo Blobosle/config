@@ -80,46 +80,48 @@ local function parent_aware_file_sorter(opts, strip_prompt)
     return sorter
 end
 
+local function parent_prompt_parts(prompt)
+    local levels = 0
+    local rest = prompt or ''
+
+    while rest:sub(1, 2) == '..' do
+        levels = levels + 1
+        rest = rest:sub(3)
+
+        if rest:sub(1, 1) == '/' then
+            rest = rest:sub(2)
+        elseif rest:sub(1, 1) ~= '.' then
+            break
+        end
+    end
+
+    return levels, rest
+end
+
+local function prompt_cwd(base_cwd, levels)
+    local next_cwd = base_cwd
+
+    for _ = 1, levels do
+        next_cwd = vim.fn.fnamemodify(next_cwd, ':h')
+    end
+
+    return next_cwd
+end
+
 local function find_files_with_parent()
     local cwd = buf_dir()
     local current_finder_key = cwd
     local command = find_command()
     local picker
 
-    local function parent_prompt_parts(prompt)
-        local levels = 0
-        local rest = prompt
-
-        while rest:match('^%.%./') do
-            levels = levels + 1
-            rest = rest:sub(4)
-        end
-
-        if rest == '..' then
-            return levels + 1, ''
-        end
-
-        if rest:sub(1, 2) == '..' then
-            return levels + 1, rest:sub(3)
-        end
-
-        return levels, rest
-    end
-
     local function prompt_without_parent(prompt)
         local _, rest = parent_prompt_parts(prompt)
         return rest
     end
 
-    local function prompt_cwd(prompt)
+    local function prompt_parent_cwd(prompt)
         local levels = parent_prompt_parts(prompt)
-        local next_cwd = cwd
-
-        for _ = 1, levels do
-            next_cwd = vim.fn.fnamemodify(next_cwd, ':h')
-        end
-
-        return next_cwd
+        return prompt_cwd(cwd, levels)
     end
 
     local function update_picker_cwd(next_cwd)
@@ -139,7 +141,7 @@ local function find_files_with_parent()
                 return { prompt = prompt }
             end
 
-            local next_finder_key = prompt_cwd(prompt)
+            local next_finder_key = prompt_parent_cwd(prompt)
             if next_finder_key == current_finder_key then
                 return {
                     prompt = prompt_without_parent(prompt),
@@ -199,16 +201,6 @@ local function grep_parent_prompt_parts(prompt)
     end
 
     return levels, rest
-end
-
-local function prompt_cwd(base_cwd, levels)
-    local next_cwd = base_cwd
-
-    for _ = 1, levels do
-        next_cwd = vim.fn.fnamemodify(next_cwd, ':h')
-    end
-
-    return next_cwd
 end
 
 local function grep_entry_maker(opts, cwd)
@@ -299,24 +291,61 @@ local function find_dirs_here()
     local conf = require("telescope.config").values
 
     local cwd = buf_dir()
+    local current_finder_key = cwd
     local command, strip_find_prefix = find_dirs_command()
-    local finder_opts = {
-        cwd = cwd,
-    }
+    local picker
 
-    if strip_find_prefix then
+    local function dir_entry_maker(next_cwd)
         local entry_maker = make_entry.gen_from_file({
-            cwd = cwd,
+            cwd = next_cwd,
         })
 
-        finder_opts.entry_maker = function(line)
+        return function(line)
             return entry_maker(line:gsub("^%./", ""))
         end
     end
 
-    pickers.new({}, {
+    local function finder_opts(next_cwd)
+        local next_opts = {
+            cwd = next_cwd,
+        }
+
+        if strip_find_prefix then
+            next_opts.entry_maker = dir_entry_maker(next_cwd)
+        end
+
+        return next_opts
+    end
+
+    local opts = {
+        cwd = cwd,
+        attach_mappings = function(prompt_bufnr)
+            picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+            return true
+        end,
+        on_input_filter_cb = function(prompt)
+            local levels, rest = parent_prompt_parts(prompt)
+            local next_finder_key = prompt_cwd(cwd, levels)
+
+            if next_finder_key == current_finder_key then
+                return { prompt = rest }
+            end
+
+            current_finder_key = next_finder_key
+            if picker then
+                picker.cwd = next_finder_key
+            end
+
+            return {
+                prompt = rest,
+                updated_finder = finders.new_oneshot_job(command, finder_opts(next_finder_key)),
+            }
+        end,
+    }
+
+    pickers.new(opts, {
         prompt_title = "Directories",
-        finder = finders.new_oneshot_job(command, finder_opts),
+        finder = finders.new_oneshot_job(command, finder_opts(cwd)),
         sorter = conf.generic_sorter({}),
     }):find()
 end
