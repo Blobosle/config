@@ -67,11 +67,24 @@ local function format_last_used(lastused)
     return os.date("%Y-%m-%d %H:%M", lastused)
 end
 
+local function current_tabpage_buffers()
+    local buffers = {}
+
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.api.nvim_win_is_valid(win) then
+            buffers[vim.api.nvim_win_get_buf(win)] = true
+        end
+    end
+
+    return buffers
+end
+
 local function terminal_buffers()
     local items = {}
+    local visible_in_current_tab = current_tabpage_buffers()
 
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buftype == "terminal" then
+        if vim.api.nvim_buf_is_valid(bufnr) and not visible_in_current_tab[bufnr] and vim.bo[bufnr].buftype == "terminal" then
             local label = term_label(bufnr)
             local info = vim.fn.getbufinfo(bufnr)[1] or {}
             local lastused = info.lastused or 0
