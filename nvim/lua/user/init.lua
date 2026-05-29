@@ -7,6 +7,7 @@ for _, m in ipairs({
     "cursor-jump",
     "comments",
     "indent",
+    "spell",
     "func-telescope",
     "cmd",
     "latex",
