@@ -22,6 +22,10 @@ local function should_render(buf)
 end
 
 local function render(buf)
+    if not vim.api.nvim_buf_is_valid(buf) then
+        return
+    end
+
     vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
 
     if not should_render(buf) then
