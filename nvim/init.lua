@@ -21,7 +21,6 @@ vim.cmd("colorscheme " .. _G.color)
 
 vim.opt.hlsearch = true
 vim.opt.incsearch = true
-vim.opt.spellsuggest = "best,9"
 -- vim.opt.relativenumber = true
 vim.opt.guicursor = ""
 vim.opt.swapfile = false
