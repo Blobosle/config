@@ -2,7 +2,7 @@ local cmdwin_preview = require("user.searchreplace")
 
 cmdwin_preview.setup()
 
-vim.keymap.set({'v', 'n'}, ';', ':', { noremap = true })
+-- vim.keymap.set({'v', 'n'}, ';', ':', { noremap = true })
 vim.keymap.set('n', ':', function()
     return cmdwin_preview.keys()
 end, { expr = true, noremap = true, silent = true })
