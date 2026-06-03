@@ -308,8 +308,9 @@ local function run_command(root, command)
             return
         end
 
+        local clear_line = vim.api.nvim_replace_termcodes("<C-e><C-u>", true, false, true)
         vim.b[buf].terminal_last_command = expanded_command
-        vim.api.nvim_chan_send(job_id, ("cd %s && %s\n"):format(vim.fn.shellescape(root), expanded_command))
+        vim.api.nvim_chan_send(job_id, clear_line .. ("cd %s && %s\n"):format(vim.fn.shellescape(root), expanded_command))
         vim.cmd("startinsert")
         return
     end
