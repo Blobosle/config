@@ -275,6 +275,20 @@ vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
 
 -- Open netrw locked to current file dir (window-local)
 vim.keymap.set("n", "<leader>e", function()
+    if vim.bo.filetype == "netrw" then
+        sync_netrw_dir(vim.api.nvim_get_current_buf())
+        for lnum = 1, vim.api.nvim_buf_line_count(0) do
+            local line = vim.trim(vim.api.nvim_buf_get_lines(0, lnum - 1, lnum, false)[1] or "")
+            if line == "../" or line == ".." then
+                vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+                return
+            end
+        end
+
+        vim.cmd("normal! gg")
+        return
+    end
+
     local file_dir = vim.fn.expand("%:p:h")
     if file_dir ~= "" then win_lcd(file_dir) end
     vim.cmd("Explore")

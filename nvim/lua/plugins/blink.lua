@@ -1,6 +1,7 @@
 return {
     {
         "saghen/blink.cmp",
+        version = "1.*",
         event = "InsertEnter",
         main = "blink.cmp",
         enabled = true,
@@ -17,4 +18,3 @@ return {
         },
     },
 }
-
