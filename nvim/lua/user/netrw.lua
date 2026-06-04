@@ -87,6 +87,15 @@ local function map_netrw_comfy(buf)
     vim.b[buf].comfy_line_numbers_mapped = true
 end
 
+local function first_netrw_entry_line(buf)
+    for lnum, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+        local trimmed = vim.trim(line)
+        if trimmed ~= "" and not trimmed:match('^"') then
+            return lnum
+        end
+    end
+end
+
 local function win_lcd(dir)
     if not dir or dir == "" then return end
     pcall(vim.cmd, "lcd " .. vim.fn.fnameescape(dir))
@@ -215,6 +224,26 @@ vim.api.nvim_create_autocmd("FileType", {
         local win = vim.fn.bufwinid(buf)
 
         map_netrw_comfy(buf)
+        vim.keymap.set("n", "{", function()
+            local first_entry = first_netrw_entry_line(buf)
+            if first_entry and vim.fn.line(".") > first_entry then
+                vim.cmd("normal! m'")
+                vim.api.nvim_win_set_cursor(0, { first_entry, 0 })
+                return
+            end
+
+            vim.cmd("normal! {")
+        end, { buffer = buf, silent = true })
+        vim.keymap.set("n", "}", function()
+            local first_entry = first_netrw_entry_line(buf)
+            if first_entry and vim.fn.line(".") < first_entry then
+                vim.cmd("normal! m'")
+                vim.api.nvim_win_set_cursor(0, { first_entry, 0 })
+                return
+            end
+
+            vim.cmd("normal! }")
+        end, { buffer = buf, silent = true })
         apply_netrw_comfy(win, buf)
 
         -- open where you last left netrw in this tab
