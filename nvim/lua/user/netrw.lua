@@ -224,7 +224,7 @@ vim.api.nvim_create_autocmd("FileType", {
         local win = vim.fn.bufwinid(buf)
 
         map_netrw_comfy(buf)
-        vim.keymap.set("n", "{", function()
+        vim.keymap.set({ "n", "x" }, "{", function()
             local first_entry = first_netrw_entry_line(buf)
             if first_entry and vim.fn.line(".") > first_entry then
                 vim.cmd("normal! m'")
@@ -234,7 +234,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
             vim.cmd("normal! {")
         end, { buffer = buf, silent = true })
-        vim.keymap.set("n", "}", function()
+        vim.keymap.set({ "n", "x" }, "}", function()
             local first_entry = first_netrw_entry_line(buf)
             if first_entry and vim.fn.line(".") < first_entry then
                 vim.cmd("normal! m'")
