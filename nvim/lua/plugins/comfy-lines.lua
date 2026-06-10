@@ -20,7 +20,7 @@ return {
                 add("", width)
             end
 
-            require("comfy-line-numbers").setup({ labels = labels })
+            require("comfy-line-numbers").config.labels = labels
         end,
     },
 }
