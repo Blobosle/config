@@ -353,6 +353,15 @@ vim.api.nvim_create_autocmd("FileType", {
 
         vim.keymap.set("n", "x", function()
             local target = netrw_target_path()
+            if target and vim.fn.filereadable(target) == 1 and vim.fn.fnamemodify(target, ":e"):lower() == "tex" then
+                if _G.UserCompileLatexFile then
+                    _G.UserCompileLatexFile(target)
+                else
+                    vim.notify("LaTeX compiler is not loaded", vim.log.levels.ERROR)
+                end
+                return
+            end
+
             if target and vim.fn.filereadable(target) == 1 and vim.fn.executable(target) == 1 then
                 _G.run_in_term_vsplit(vim.fn.shellescape(target), vim.fn.fnamemodify(target, ":h"))
                 return
