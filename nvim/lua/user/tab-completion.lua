@@ -5,6 +5,10 @@ local function key(keys)
     return vim.api.nvim_replace_termcodes(keys, true, false, true)
 end
 
+local function fallback()
+    return key("<C-x><C-v>")
+end
+
 local function escaped_at(text, idx)
     local n = 0
     for i = idx - 1, 1, -1 do
@@ -50,16 +54,16 @@ end
 local function complete_sh_arg(before, cmd_end)
     local after_cmd = before:sub(cmd_end + 1)
     if after_cmd == "" then
-        return complete_at(cmd_end + 2, "", "shellcmd") and " " or key("<Tab>")
+        return complete_at(cmd_end + 2, "", "shellcmd") and " " or fallback()
     end
     if not after_cmd:sub(1, 1):match("%s") then
-        return key("<Tab>")
+        return fallback()
     end
 
     local start = arg_start(before, cmd_end + 1)
     local args = after_cmd:gsub("^%s*", "")
     local completion_type = args:find("%s") and "file" or "shellcmd"
-    return complete_at(start, before:sub(start), completion_type) and "" or key("<Tab>")
+    return complete_at(start, before:sub(start), completion_type) and "" or fallback()
 end
 
 local function complete_cmdwin()
@@ -70,28 +74,34 @@ local function complete_cmdwin()
     local line = vim.api.nvim_get_current_line()
     local col = vim.api.nvim_win_get_cursor(0)[2]
     local before = line:sub(1, col)
-    local _, cmd_end, cmd = before:find("^%s*'<,'>%s*([%a][%w]*)!?")
+    local cmd_start, cmd_end, cmd = before:find("^%s*'<,'>%s*([%a][%w]*)!?")
     if not cmd then
-        _, cmd_end, cmd = before:find("^%s*([%a][%w]*)!?")
+        cmd_start, cmd_end, cmd = before:find("^%s*([%a][%w]*)!?")
+    end
+    if cmd then
+        cmd_start = before:sub(cmd_end, cmd_end) == "!" and cmd_end - #cmd or cmd_end - #cmd + 1
     end
 
     if not (cmd and edit_cmds[cmd:lower()]) then
         if cmd and sh_cmds[cmd:lower()] then
             return complete_sh_arg(before, cmd_end)
         end
-        return key("<Tab>")
+        if cmd and before:sub(cmd_end + 1) == "" then
+            return complete_at(cmd_start, cmd, "command") and "" or fallback()
+        end
+        return fallback()
     end
 
     local after_cmd = before:sub(cmd_end + 1)
     if after_cmd == "" then
-        return complete_at(cmd_end + 2, "") and " " or key("<Tab>")
+        return complete_at(cmd_end + 2, "") and " " or fallback()
     end
     if not after_cmd:sub(1, 1):match("%s") then
-        return key("<Tab>")
+        return fallback()
     end
 
     local start = arg_start(before, cmd_end + 1)
-    return complete_at(start, before:sub(start)) and "" or key("<Tab>")
+    return complete_at(start, before:sub(start)) and "" or fallback()
 end
 
 vim.api.nvim_create_autocmd("CmdwinEnter", {
