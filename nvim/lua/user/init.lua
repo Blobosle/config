@@ -10,6 +10,7 @@ for _, m in ipairs({
     "spell",
     "func-telescope",
     "cmd",
+    "tab-completion",
     "latex",
     "eof",
     "quickfix",
