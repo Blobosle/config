@@ -122,10 +122,6 @@ vim.keymap.set('n', 'ZA', '<Cmd>silent write<CR>', { noremap = true, silent = tr
 vim.keymap.set('n', 'Ñ', '<Cmd>silent write<CR>', { noremap = true, silent = true })
 vim.api.nvim_create_user_command("W", "w", {})
 
--- Visual block shifting with indentation
-vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
-vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
-
 -- Remap for auto suggestions (dropdown autocompletion)
 vim.api.nvim_set_keymap('i', 'S>', '<C-n>', { noremap = true, silent = true })
 
