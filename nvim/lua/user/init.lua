@@ -1,6 +1,7 @@
 for _, m in ipairs({
     "filetype",
     "remaps",
+    "visual-move",
     "netrw",
     "tab",
     "term",
