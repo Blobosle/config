@@ -134,9 +134,21 @@ local function rename_path(from, to)
     return 0
 end
 
-local function netrw_target_path()
-    local name = vim.fn.expand("<cfile>")
+local function netrw_entry_name()
+    local name = vim.trim(vim.api.nvim_get_current_line())
     if not name or name == "" then
+        return nil
+    end
+    if name:match('^"') then
+        return nil
+    end
+
+    return name
+end
+
+local function netrw_target_path()
+    local name = netrw_entry_name()
+    if not name then
         return nil
     end
 
@@ -377,7 +389,11 @@ vim.api.nvim_create_autocmd("FileType", {
         end, { buffer = ev.buf, silent = true })
 
         vim.keymap.set("n", "R", function()
-            local name = vim.fn.expand("<cfile>")
+            local name = netrw_entry_name()
+            if not name then
+                return
+            end
+
             local dir = vim.b.netrw_curdir or vim.fn.getcwd()
             local from = normpath(dir .. "/" .. name)
 
