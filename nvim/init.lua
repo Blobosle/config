@@ -3,7 +3,6 @@ require("user")
 
 _G.color = "onedark"
 
--- vim.cmd("set number")
 vim.cmd("set linebreak")
 vim.cmd("set noruler")
 vim.cmd("set expandtab ")
