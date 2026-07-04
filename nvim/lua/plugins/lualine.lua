@@ -279,6 +279,14 @@ return {
             return table.concat(chunks, ' ')
         end
 
+        local visual_line_count = function()
+            if vim.fn.mode(1) ~= 'V' then
+                return nil
+            end
+
+            return math.abs(vim.fn.line('.') - vim.fn.line('v')) + 1
+        end
+
         _G.UserWinbarParts = function()
             if vim.fn.getcmdwintype() ~= '' then
                 return {}
@@ -293,7 +301,12 @@ return {
             local mode_text, mode_hl = mode_indicator()
             table.insert(parts, { text = mode_text, hl = mode_hl })
 
-            table.insert(parts, { text = string.format('[%d]:[%d]', vim.fn.line('.'), vim.fn.col('.')) })
+            local location = string.format('[%d]:[%d]', vim.fn.line('.'), vim.fn.col('.'))
+            local selected_lines = visual_line_count()
+            if selected_lines then
+                location = location .. string.format(' [%d]', selected_lines)
+            end
+            table.insert(parts, { text = location })
 
             local branch = git_branch()
             if branch ~= '' then
