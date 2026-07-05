@@ -287,6 +287,24 @@ return {
             return math.abs(vim.fn.line('.') - vim.fn.line('v')) + 1
         end
 
+        local visual_char_count = function()
+            if vim.fn.mode(1) ~= 'v' then
+                return nil
+            end
+
+            local ok, region = pcall(vim.fn.getregion, vim.fn.getpos('v'), vim.fn.getpos('.'), { type = 'v' })
+            if not ok then
+                return nil
+            end
+
+            local count = 0
+            for _, line in ipairs(region) do
+                count = count + vim.fn.strchars(line)
+            end
+
+            return count
+        end
+
         _G.UserWinbarParts = function()
             if vim.fn.getcmdwintype() ~= '' then
                 return {}
@@ -302,9 +320,9 @@ return {
             table.insert(parts, { text = mode_text, hl = mode_hl })
 
             local location = string.format('[%d]:[%d]', vim.fn.line('.'), vim.fn.col('.'))
-            local selected_lines = visual_line_count()
-            if selected_lines then
-                location = location .. string.format(' [%d]', selected_lines)
+            local selection_count = visual_line_count() or visual_char_count()
+            if selection_count then
+                location = location .. string.format(' [%d]', selection_count)
             end
             table.insert(parts, { text = location })
 
