@@ -108,6 +108,43 @@ local function prompt_cwd(base_cwd, levels)
     return next_cwd
 end
 
+local function open_backdrop(prompt_bufnr)
+    vim.api.nvim_set_hl(0, 'TelescopeBackdrop', { bg = '#000000', default = true })
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    local winid = vim.api.nvim_open_win(bufnr, false, {
+        relative = 'editor',
+        row = 0,
+        col = 0,
+        width = vim.o.columns,
+        height = vim.o.lines - vim.o.cmdheight,
+        style = 'minimal',
+        focusable = false,
+        zindex = 40,
+    })
+
+    vim.bo[bufnr].bufhidden = 'wipe'
+    vim.wo[winid].fillchars = 'eob: '
+    vim.wo[winid].winblend = 35
+    vim.wo[winid].winhighlight = 'Normal:TelescopeBackdrop,EndOfBuffer:TelescopeBackdrop'
+
+    vim.api.nvim_create_autocmd('BufWipeout', {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+            if vim.api.nvim_win_is_valid(winid) then
+                vim.api.nvim_win_close(winid, true)
+            end
+        end,
+    })
+end
+
+local function ivy_opts(opts)
+    return require('telescope.themes').get_ivy(vim.tbl_extend('force', {
+        border = false,
+    }, opts or {}))
+end
+
 local function find_files_with_parent()
     local cwd = buf_dir()
     local current_finder_key = cwd
@@ -130,9 +167,10 @@ local function find_files_with_parent()
         end
     end
 
-    local opts = require('telescope.themes').get_ivy({
+    local opts = ivy_opts({
         cwd = cwd,
         attach_mappings = function(prompt_bufnr)
+            open_backdrop(prompt_bufnr)
             picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
             return true
         end,
@@ -220,7 +258,7 @@ local function live_grep_args_with_parent()
     local current_finder_key = cwd
     local picker
 
-    local opts = require('telescope.themes').get_ivy({
+    local opts = ivy_opts({
         auto_quoting = true,
         cwd = cwd,
         vimgrep_arguments = conf.vimgrep_arguments,
@@ -278,6 +316,7 @@ local function live_grep_args_with_parent()
         previewer = conf.grep_previewer(opts),
         sorter = sorter,
         attach_mappings = function(prompt_bufnr)
+            open_backdrop(prompt_bufnr)
             picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
             return true
         end,
@@ -317,9 +356,10 @@ local function find_dirs_here()
         return next_opts
     end
 
-    local opts = require('telescope.themes').get_ivy({
+    local opts = ivy_opts({
         cwd = cwd,
         attach_mappings = function(prompt_bufnr)
+            open_backdrop(prompt_bufnr)
             picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
             return true
         end,
