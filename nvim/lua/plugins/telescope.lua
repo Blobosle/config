@@ -130,7 +130,7 @@ local function find_files_with_parent()
         end
     end
 
-    local opts = {
+    local opts = require('telescope.themes').get_ivy({
         cwd = cwd,
         attach_mappings = function(prompt_bufnr)
             picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
@@ -159,7 +159,7 @@ local function find_files_with_parent()
                 }),
             }
         end,
-    }
+    })
 
     opts.entry_maker = file_entry_maker(opts, cwd)
     opts.sorter = parent_aware_file_sorter(opts, prompt_without_parent)
@@ -220,11 +220,11 @@ local function live_grep_args_with_parent()
     local current_finder_key = cwd
     local picker
 
-    local opts = {
+    local opts = require('telescope.themes').get_ivy({
         auto_quoting = true,
         cwd = cwd,
         vimgrep_arguments = conf.vimgrep_arguments,
-    }
+    })
 
     local function cmd_generator(prompt)
         if not prompt or prompt == '' then
@@ -317,7 +317,7 @@ local function find_dirs_here()
         return next_opts
     end
 
-    local opts = {
+    local opts = require('telescope.themes').get_ivy({
         cwd = cwd,
         attach_mappings = function(prompt_bufnr)
             picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
@@ -341,7 +341,7 @@ local function find_dirs_here()
                 updated_finder = finders.new_oneshot_job(command, finder_opts(next_finder_key)),
             }
         end,
-    }
+    })
 
     pickers.new(opts, {
         prompt_title = "Directories",
