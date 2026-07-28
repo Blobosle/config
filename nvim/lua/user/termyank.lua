@@ -34,7 +34,84 @@ local function is_blockwise(regtype)
   return regtype and regtype:sub(1, 1) == "\22"
 end
 
-local function transform_for_regtype(lines, regtype)
+local function terminal_text_width()
+  local buf = vim.api.nvim_get_current_buf()
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= buf then
+    for _, candidate in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_buf(candidate) == buf then
+        win = candidate
+        break
+      end
+    end
+  end
+
+  local info = vim.fn.getwininfo(win)[1]
+  local textoff = info and info.textoff or 0
+  return math.max(1, vim.api.nvim_win_get_width(win) - textoff)
+end
+
+local function selected_buffer_lines(lines)
+  local first = vim.fn.getpos("'[")[2]
+  local last = vim.fn.getpos("']")[2]
+  if first < 1 or last < first or last - first + 1 ~= #lines then
+    return lines
+  end
+  return vim.api.nvim_buf_get_lines(0, first - 1, last, false)
+end
+
+local function is_blank(line)
+  return line:match("^%s*$") ~= nil
+end
+
+local function is_prose_continuation(previous, current)
+  local previous_text = previous:match("^%s*(.-)%s*$")
+  local first_character = current:match("^%s*(.)")
+  return previous_text ~= ""
+      and previous_text:match("[.!?:;]$") == nil
+      and first_character ~= nil
+      and first_character:match("%l") ~= nil
+end
+
+local function starts_structured_row(line)
+  if line:match("^%s*[-*+]%s+")
+      or line:match("^%s*•%s+")
+      or line:match("^%s*‣%s+")
+      or line:match("^%s*▪%s+")
+      or line:match("^%s*◦%s+")
+      or line:match("^%s*%d+[.)]%s+")
+      or line:match("^%s*[A-Za-z][.)]%s+") then
+    return true
+  end
+
+  if line:match("^%s*[$#>]%s+")
+      or line:match("^%s*❯%s*")
+      or line:match("^%s*➜%s*")
+      or line:match("^%s*#+%s+") then
+    return true
+  end
+
+  if line:match("^%s*%d%d%d%d[-/]%d%d[-/]%d%d")
+      or line:match("^%s*%d%d:%d%d:%d%d") then
+    return true
+  end
+
+  local upper = line:upper()
+  for _, level in ipairs({ "DEBUG", "INFO", "WARN", "WARNING", "ERROR", "TRACE", "FATAL" }) do
+    if upper:match("^%s*%[?" .. level .. "%]?[%s:%-]") then
+      return true
+    end
+  end
+
+  return line:match("^%s*|") ~= nil
+      or line:match("^%s*│") ~= nil
+      or line:match("^%s*%+%-") ~= nil
+      or line:match("^%s*┌") ~= nil
+      or line:match("^%s*├") ~= nil
+      or line:match("^%s*└") ~= nil
+end
+
+local function transform_for_regtype(lines, regtype, source_lines)
   if is_blockwise(regtype) then
     return nil
   end
@@ -45,16 +122,42 @@ local function transform_for_regtype(lines, regtype)
   if debug then
     return { table.concat(stripped, "\\r") }, "v"
   end
-  local joined = table.concat(stripped, "\r")
-  joined = joined:gsub("\r\r", "\n\n"):gsub("\r", "")
-  return { joined }, "v"
+
+  source_lines = source_lines or lines
+  local width = terminal_text_width()
+  local out = { stripped[1] }
+
+  for i = 2, #stripped do
+    local previous = source_lines[i - 1] or stripped[i - 1]
+    local current = source_lines[i] or stripped[i]
+    local content = stripped[i]
+    local separator
+
+    if is_blank(previous) or is_blank(current) then
+      separator = "\n"
+    elseif starts_structured_row(current) then
+      separator = "\n"
+    elseif vim.fn.strdisplaywidth(previous) >= width then
+      separator = ""
+    elseif is_prose_continuation(previous, current) then
+      separator = " "
+      content = content:gsub("^%s+", "")
+    else
+      separator = "\n"
+    end
+
+    out[#out + 1] = separator
+    out[#out + 1] = content
+  end
+
+  return { table.concat(out) }, "v"
 end
 
-local function sanitize_register(regname, lines, regtype)
+local function sanitize_register(regname, lines, regtype, source_lines)
   if not lines or #lines == 0 then
     return
   end
-  local cleaned, new_regtype = transform_for_regtype(lines, regtype)
+  local cleaned, new_regtype = transform_for_regtype(lines, regtype, source_lines)
   if not cleaned then
     return
   end
@@ -67,7 +170,7 @@ local function on_text_yank_post()
     return
   end
   local event = vim.v.event
-  sanitize_register(event.regname, event.regcontents, event.regtype)
+  sanitize_register(event.regname, event.regcontents, event.regtype, selected_buffer_lines(event.regcontents))
 end
 
 local function line_is_blank(buf, lnum)
