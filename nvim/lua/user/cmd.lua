@@ -29,6 +29,26 @@ vim.api.nvim_create_autocmd('CmdwinEnter', {
         vim.wo.foldcolumn = '0'
         vim.wo.statuscolumn = '%{v:relnum?v:relnum:v:lnum}  '
         vim.keymap.set('n', '<Esc>', '<Cmd>q<CR>', { buffer = true, silent = true, desc = 'Close cmdwin' })
+        if vim.fn.getcmdwintype() == ':' then
+            local buf = vim.api.nvim_get_current_buf()
+
+            vim.keymap.set('n', '<CR>', function()
+                if vim.api.nvim_get_current_line() == 'home' then
+                    return '0Diedit ~/<CR>'
+                end
+                return '<CR>'
+            end, { buffer = true, expr = true, silent = true, desc = 'Execute cmdwin command' })
+
+            vim.api.nvim_create_autocmd('InsertLeave', {
+                group = grp,
+                buffer = buf,
+                callback = function()
+                    if vim.api.nvim_get_current_line() == 'home' then
+                        vim.api.nvim_set_current_line('edit ~/')
+                    end
+                end,
+            })
+        end
     end,
 })
 
