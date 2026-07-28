@@ -33,6 +33,10 @@ local function complete_at(start_col, arglead, completion_type)
     completion_type = completion_type or "file"
 
     local matches = vim.fn.getcompletion(arglead, completion_type)
+    if completion_type == "command" and vim.startswith("home", arglead) then
+        matches[#matches + 1] = "home"
+        table.sort(matches)
+    end
     if #matches == 0 then
         return false
     end
