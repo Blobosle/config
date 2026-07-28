@@ -5,6 +5,7 @@ for _, m in ipairs({
     "netrw",
     "tab",
     "term",
+    "termyank",
     "cursor-jump",
     "comments",
     "indent",
