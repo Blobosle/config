@@ -39,10 +39,14 @@ local function vsplit_preserving_terminal_views()
 
     local views = save_terminal_views()
 
-    vim.cmd("vsplit")
     if terminal_dir then
+        local netrw_buf = vim.api.nvim_create_buf(false, true)
+        vim.bo[netrw_buf].bufhidden = "wipe"
+        vim.api.nvim_open_win(netrw_buf, true, { split = "right" })
         vim.t.netrw_lastdir = terminal_dir
-        vim.cmd("edit " .. vim.fn.fnameescape(terminal_dir))
+        vim.fn["netrw#Explore"](0, 0, 0, terminal_dir)
+    else
+        vim.cmd("vsplit")
     end
     vim.schedule(function()
         restore_terminal_views(views)
