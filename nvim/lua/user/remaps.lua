@@ -32,9 +32,18 @@ local function restore_terminal_views(views)
 end
 
 local function vsplit_preserving_terminal_views()
+    local terminal_dir
+    if vim.bo.buftype == "terminal" and _G.terminal_cwd then
+        terminal_dir = _G.terminal_cwd(vim.api.nvim_get_current_buf()) or vim.fn.getcwd()
+    end
+
     local views = save_terminal_views()
 
     vim.cmd("vsplit")
+    if terminal_dir then
+        vim.t.netrw_lastdir = terminal_dir
+        vim.cmd("edit " .. vim.fn.fnameescape(terminal_dir))
+    end
     vim.schedule(function()
         restore_terminal_views(views)
     end)

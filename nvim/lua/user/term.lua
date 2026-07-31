@@ -49,6 +49,8 @@ local function terminal_cwd(bufnr)
     return nil
 end
 
+_G.terminal_cwd = terminal_cwd
+
 local function current_buffer_dir()
     local bufnr = vim.api.nvim_get_current_buf()
     local cwd = terminal_cwd(bufnr)
