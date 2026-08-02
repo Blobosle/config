@@ -12,7 +12,7 @@ return {
         },
         opts = {
             automatic_enable = false,
-            ensure_installed = { "clangd", "ts_ls", "tailwindcss", "cmake", "protols" },
+            ensure_installed = { "clangd" },
         },
     },
     {
@@ -25,10 +25,6 @@ return {
                 cmd = { "clangd", "-j=4" },
             })
             vim.lsp.enable("clangd")
-            vim.lsp.enable("ts_ls")
-            vim.lsp.enable("tailwindcss")
-            vim.lsp.enable("cmake")
-            vim.lsp.enable("protols")
         end,
     },
 }
