@@ -158,6 +158,8 @@ vim.api.nvim_set_keymap('t', '<Esc>', '<C-\\><C-N>', { noremap = true, silent = 
 -- Visual line movement
 vim.keymap.set("n", "<Down>", "gj", { noremap = true })
 vim.keymap.set("n", "<Up>", "gk", { noremap = true })
+vim.keymap.set("n", "‚", "<PageDown>", { noremap = true, silent = true })
+vim.keymap.set("n", "´", "<PageUp>", { noremap = true, silent = true })
 
 -- Visual line movement for insert mode
 vim.keymap.set("i", "<Down>", [[<C-o>gj]])
