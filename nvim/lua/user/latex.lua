@@ -11,6 +11,20 @@ local function open_pdf_for_tex(tex_path)
     vim.fn.jobstart({ 'open', pdf_path }, { detach = true })
 end
 
+local function has_latex_makefile(file_dir)
+  for _, name in ipairs({ 'GNUmakefile', 'Makefile', 'makefile' }) do
+    local path = file_dir .. '/' .. name
+    if vim.fn.filereadable(path) == 1 then
+      local contents = table.concat(vim.fn.readfile(path), '\n')
+      if contents:find('latexmk', 1, true) then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
 -- Compile a tex file with latexmk without blocking Neovim
 local function compile_latex_file(tex_path)
   tex_path = vim.fn.fnamemodify(tex_path or '', ':p')
@@ -23,17 +37,36 @@ local function compile_latex_file(tex_path)
 
   local file_dir = vim.fn.fnamemodify(tex_path, ':h')
   local tex_file = vim.fn.fnamemodify(tex_path, ':t')
+  local pdf_file = vim.fn.fnamemodify(tex_path, ':t:r') .. '.pdf'
+  local command
 
   vim.fn.mkdir(file_dir .. '/.latex', 'p')
 
-  vim.fn.jobstart({
-    'latexmk',
-    '-pdf',
-    '-interaction=nonstopmode',
-    '-silent',
-    '-auxdir=.latex',
-    tex_file,
-  }, {
+  if has_latex_makefile(file_dir) then
+    command = { 'make', '--no-print-directory' }
+
+    -- An existing root PDF built with a different output directory can make
+    -- make skip the first .latex build. Force only that one-time migration.
+    local root_pdf = file_dir .. '/' .. pdf_file
+    local latex_pdf = file_dir .. '/.latex/' .. pdf_file
+    if vim.fn.filereadable(root_pdf) == 1 and vim.fn.filereadable(latex_pdf) ~= 1 then
+      table.insert(command, '-B')
+    end
+
+    table.insert(command, 'BUILDDIR=.latex')
+    table.insert(command, pdf_file)
+  else
+    command = {
+      'latexmk',
+      '-pdf',
+      '-interaction=nonstopmode',
+      '-silent',
+      '-auxdir=.latex',
+      tex_file,
+    }
+  end
+
+  vim.fn.jobstart(command, {
     cwd = file_dir,
     on_exit = function(_, code, _)
       if code == 0 then
