@@ -11,6 +11,7 @@ for _, m in ipairs({
     "indent",
     "spell",
     "func-telescope",
+    "nmux",
     "cmd",
     "tab-completion",
     "latex",
