@@ -77,6 +77,174 @@ local function mark_as_managed()
     write_registry()
 end
 
+local screen_highlight_fields = {
+    { "foreground", "fg", "color" },
+    { "background", "bg", "color" },
+    { "special", "sp", "color" },
+    { "blend", "blend", "number" },
+    { "bold", "bold", "boolean" },
+    { "standout", "standout", "boolean" },
+    { "underline", "underline", "boolean" },
+    { "undercurl", "undercurl", "boolean" },
+    { "underdouble", "underdouble", "boolean" },
+    { "underdotted", "underdotted", "boolean" },
+    { "underdashed", "underdashed", "boolean" },
+    { "strikethrough", "strikethrough", "boolean" },
+    { "italic", "italic", "boolean" },
+    { "reverse", "reverse", "boolean" },
+    { "nocombine", "nocombine", "boolean" },
+}
+
+local function normalize_screen_highlight(attributes)
+    local highlight = {}
+
+    for _, field in ipairs(screen_highlight_fields) do
+        local value = attributes[field[1]]
+        if field[3] == "color" and type(value) == "number" then
+            highlight[field[2]] = ("#%06x"):format(value)
+        elseif field[3] == "number" and type(value) == "number" then
+            highlight[field[2]] = value
+        elseif field[3] == "boolean" and value == true then
+            highlight[field[2]] = true
+        end
+    end
+
+    return highlight
+end
+
+local function screen_highlight_key(highlight)
+    local parts = {}
+
+    for _, field in ipairs(screen_highlight_fields) do
+        local value = highlight[field[2]]
+        if value ~= nil then
+            parts[#parts + 1] = field[2] .. "=" .. tostring(value)
+        end
+    end
+
+    return table.concat(parts, ",")
+end
+
+local function printable_screen_cell(value)
+    if type(value) ~= "string" or value == "" then
+        return " "
+    end
+
+    local byte = value:byte()
+    if #value == 1 and byte >= 32 and byte <= 126 then
+        return value
+    end
+
+    return "?"
+end
+
+local function rendered_window_snapshot(position, width, height)
+    if type(api.nvim__inspect_cell) ~= "function" then
+        return nil, nil
+    end
+
+    local lines = {}
+    local highlights = {}
+
+    for row = 0, height - 1 do
+        local cells = {}
+        local spans = {}
+        local active_key = ""
+        local active_start = nil
+        local active_highlight = nil
+
+        for col = 0, width - 1 do
+            local ok, cell = pcall(api.nvim__inspect_cell, 1, position[1] + row, position[2] + col)
+            if not ok or type(cell) ~= "table" then
+                return nil, nil
+            end
+
+            cells[#cells + 1] = printable_screen_cell(cell[1])
+
+            local highlight = normalize_screen_highlight(type(cell[2]) == "table" and cell[2] or {})
+            local key = screen_highlight_key(highlight)
+            if key ~= active_key then
+                if active_start ~= nil then
+                    spans[#spans + 1] = {
+                        start_col = active_start,
+                        end_col = col,
+                        highlight = active_highlight,
+                    }
+                end
+
+                active_key = key
+                active_start = key ~= "" and col or nil
+                active_highlight = key ~= "" and highlight or nil
+            end
+        end
+
+        if active_start ~= nil then
+            spans[#spans + 1] = {
+                start_col = active_start,
+                end_col = width,
+                highlight = active_highlight,
+            }
+        end
+
+        lines[#lines + 1] = table.concat(cells)
+        highlights[#highlights + 1] = spans
+    end
+
+    return lines, highlights
+end
+
+local function tab_window_snapshots(current_win)
+    local windows = {}
+
+    for _, win in ipairs(api.nvim_tabpage_list_wins(0)) do
+        local config = api.nvim_win_get_config(win)
+        if config.relative == "" then
+            local bufnr = api.nvim_win_get_buf(win)
+            local position = api.nvim_win_get_position(win)
+            local cursor = api.nvim_win_get_cursor(win)
+            local view = api.nvim_win_call(win, function()
+                local saved = vim.fn.winsaveview()
+                return {
+                    first = vim.fn.line("w0"),
+                    last = vim.fn.line("w$"),
+                    leftcol = saved.leftcol or 0,
+                }
+            end)
+            local line_count = api.nvim_buf_line_count(bufnr)
+            local first = math.max(1, math.min(view.first, line_count))
+            local last = math.max(first, math.min(view.last, line_count))
+            local width = api.nvim_win_get_width(win)
+            local height = api.nvim_win_get_height(win)
+            local screen_lines, screen_highlights = rendered_window_snapshot(position, width, height)
+
+            windows[#windows + 1] = {
+                position = position,
+                width = width,
+                height = height,
+                buffer_name = api.nvim_buf_get_name(bufnr),
+                modified = vim.bo[bufnr].modified,
+                first_line = first,
+                leftcol = view.leftcol,
+                cursor_line = cursor[1],
+                cursor_column = cursor[2],
+                lines = api.nvim_buf_get_lines(bufnr, first - 1, last, false),
+                screen_lines = screen_lines,
+                screen_highlights = screen_highlights,
+                is_current = win == current_win,
+            }
+        end
+    end
+
+    table.sort(windows, function(a, b)
+        if a.position[1] == b.position[1] then
+            return a.position[2] < b.position[2]
+        end
+        return a.position[1] < b.position[1]
+    end)
+
+    return windows
+end
+
 local function active_buffer_snapshot()
     local win = api.nvim_get_current_win()
     local bufnr = api.nvim_win_get_buf(win)
@@ -117,6 +285,7 @@ local function active_buffer_snapshot()
         cursor_column = cursor[2],
         preview_first_line = first + 1,
         preview_lines = lines,
+        windows = tab_window_snapshots(win),
         discoverable = session.ever_had_tui or session.reattached,
     }
 end
@@ -124,6 +293,7 @@ end
 function M.snapshot()
     if has_tui() then
         mark_as_managed()
+        pcall(api.nvim__redraw, { flush = true })
     end
 
     return active_buffer_snapshot()
@@ -286,10 +456,218 @@ local function ivy_opts(opts)
     }, opts or {}))
 end
 
+local function ascii_text(text)
+    return tostring(text or ""):gsub("[^ -~]", "?")
+end
+
+local function render_split_canvas(windows, width, height)
+    width = math.max(12, width)
+    height = math.max(3, height)
+
+    local canvas = {}
+    local highlight_canvas = {}
+    for row = 1, height do
+        canvas[row] = {}
+        highlight_canvas[row] = {}
+        for col = 1, width do
+            canvas[row][col] = " "
+        end
+    end
+
+    local function set_cell(row, col, value, highlight)
+        if row >= 1 and row <= height and col >= 1 and col <= width then
+            canvas[row][col] = value
+            highlight_canvas[row][col] = highlight
+        end
+    end
+
+    local function put_text(row, col, text, last_col, highlight_spans)
+        text = ascii_text(text)
+        last_col = math.min(last_col, width)
+        local span_index = 1
+
+        for index = 1, #text do
+            local target_col = col + index - 1
+            if target_col > last_col then
+                break
+            end
+
+            local source_col = index - 1
+            while highlight_spans and highlight_spans[span_index]
+                and highlight_spans[span_index].end_col <= source_col do
+                span_index = span_index + 1
+            end
+
+            local span = highlight_spans and highlight_spans[span_index] or nil
+            local highlight = span
+                and span.start_col <= source_col
+                and source_col < span.end_col
+                and span.highlight
+                or nil
+            set_cell(row, target_col, text:sub(index, index), highlight)
+        end
+    end
+
+    local source_width = 1
+    local source_height = 1
+    for _, window in ipairs(windows) do
+        source_width = math.max(source_width, window.position[2] + window.width)
+        source_height = math.max(source_height, window.position[1] + window.height)
+    end
+
+    local function scale(value, source_size, target_size)
+        return math.floor((value / source_size) * (target_size - 1)) + 1
+    end
+
+    local regions = {}
+    for _, window in ipairs(windows) do
+        local top = scale(window.position[1], source_height, height)
+        local left = scale(window.position[2], source_width, width)
+        local bottom = scale(window.position[1] + window.height, source_height, height)
+        local right = scale(window.position[2] + window.width, source_width, width)
+
+        bottom = math.min(height, math.max(top + 2, bottom))
+        right = math.min(width, math.max(left + 3, right))
+
+        for col = left + 1, right - 1 do
+            set_cell(top, col, "-")
+            set_cell(bottom, col, "-")
+        end
+        for row = top + 1, bottom - 1 do
+            set_cell(row, left, "|")
+            set_cell(row, right, "|")
+        end
+        set_cell(top, left, "+")
+        set_cell(top, right, "+")
+        set_cell(bottom, left, "+")
+        set_cell(bottom, right, "+")
+
+        local filename = window.buffer_name ~= "" and vim.fn.fnamemodify(window.buffer_name, ":t") or "[No Name]"
+        local title = (window.is_current and "* " or "") .. filename .. (window.modified and " [+]" or "")
+        put_text(top, left + 2, title, right - 2)
+
+        local inner_height = bottom - top - 1
+        local inner_width = right - left - 1
+        local rendered_lines = window.screen_lines
+        local line_source = rendered_lines or window.lines
+        local line_total = #line_source
+        for row = 1, inner_height do
+            local source_index = row
+            if line_total > inner_height and inner_height > 1 then
+                source_index = math.floor(((row - 1) / (inner_height - 1)) * (line_total - 1)) + 1
+            end
+
+            local line = line_source[source_index] or ""
+            if not rendered_lines and window.leftcol > 0 then
+                line = vim.fn.strcharpart(line, window.leftcol)
+            end
+            local highlight_spans = rendered_lines
+                and window.screen_highlights
+                and window.screen_highlights[source_index]
+                or nil
+            put_text(top + row, left + 1, line, left + inner_width, highlight_spans)
+        end
+
+        regions[#regions + 1] = {
+            row = top,
+            left = left,
+            right = right,
+            active = window.is_current,
+        }
+    end
+
+    local lines = {}
+    for row = 1, height do
+        lines[row] = table.concat(canvas[row])
+    end
+
+    local highlights = {}
+    for row = 1, height do
+        local active_key = ""
+        local active_start = nil
+        local active_highlight = nil
+
+        for col = 1, width + 1 do
+            local highlight = col <= width and highlight_canvas[row][col] or nil
+            local key = highlight and screen_highlight_key(highlight) or ""
+            if key ~= active_key then
+                if active_start ~= nil then
+                    highlights[#highlights + 1] = {
+                        row = row,
+                        start_col = active_start,
+                        end_col = col,
+                        highlight = active_highlight,
+                    }
+                end
+
+                active_key = key
+                active_start = key ~= "" and col or nil
+                active_highlight = key ~= "" and highlight or nil
+            end
+        end
+    end
+
+    return lines, regions, highlights
+end
+
+local function render_window_canvas(window, width, height)
+    local source_lines = window.screen_lines or {}
+    local source_highlights = window.screen_highlights or {}
+    local line_total = #source_lines
+    local lines = {}
+    local highlights = {}
+
+    for row = 1, height do
+        local source_index = row
+        if line_total > height and height > 1 then
+            source_index = math.floor(((row - 1) / (height - 1)) * (line_total - 1)) + 1
+        end
+
+        local line = ascii_text(source_lines[source_index] or ""):sub(1, width)
+        lines[row] = line
+
+        for _, span in ipairs(source_highlights[source_index] or {}) do
+            local start_col = math.max(0, span.start_col)
+            local end_col = math.min(#line, span.end_col)
+            if start_col < end_col then
+                highlights[#highlights + 1] = {
+                    row = row,
+                    start_col = start_col + 1,
+                    end_col = end_col + 1,
+                    highlight = span.highlight,
+                }
+            end
+        end
+    end
+
+    return lines, highlights
+end
+
 local function make_session_previewer()
     local previewers = require("telescope.previewers")
     local putils = require("telescope.previewers.utils")
     local namespace = api.nvim_create_namespace("nmux_preview")
+    local color_groups = {}
+    local color_group_count = 0
+
+    local function color_group(highlight)
+        local key = screen_highlight_key(highlight)
+        if key == "" then
+            return nil
+        end
+
+        if not color_groups[key] then
+            color_group_count = color_group_count + 1
+            local name = "NmuxPreviewColor" .. color_group_count
+            local ok = pcall(api.nvim_set_hl, 0, name, highlight)
+            if not ok then
+                return nil
+            end
+            color_groups[key] = name
+        end
+
+        return color_groups[key]
+    end
 
     return previewers.new_buffer_previewer({
         title = "Session Preview",
@@ -310,13 +688,38 @@ local function make_session_previewer()
                 "",
             }
             local header_count = #header
-            local lines = vim.list_extend(header, vim.deepcopy(item.preview_lines or { "[preview unavailable]" }))
+            local windows = item.windows or {}
+            local split_regions = nil
+            local color_highlights = nil
+            local rendered_screen = false
+            local content
+
+            if #windows > 1 and self.state.winid and api.nvim_win_is_valid(self.state.winid) then
+                local preview_width = api.nvim_win_get_width(self.state.winid)
+                local preview_height = math.max(3, api.nvim_win_get_height(self.state.winid) - header_count)
+                content, split_regions, color_highlights = render_split_canvas(windows, preview_width, preview_height)
+                rendered_screen = true
+                vim.bo[self.state.bufnr].filetype = ""
+                vim.bo[self.state.bufnr].syntax = ""
+            elseif #windows == 1 and windows[1].screen_lines
+                and self.state.winid and api.nvim_win_is_valid(self.state.winid) then
+                local preview_width = api.nvim_win_get_width(self.state.winid)
+                local preview_height = math.max(3, api.nvim_win_get_height(self.state.winid) - header_count)
+                content, color_highlights = render_window_canvas(windows[1], preview_width, preview_height)
+                rendered_screen = true
+                vim.bo[self.state.bufnr].filetype = ""
+                vim.bo[self.state.bufnr].syntax = ""
+            else
+                content = vim.deepcopy(item.preview_lines or { "[preview unavailable]" })
+            end
+
+            local lines = vim.list_extend(header, content)
 
             vim.bo[self.state.bufnr].modifiable = true
             api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
             vim.bo[self.state.bufnr].modifiable = false
 
-            if item.filetype and item.filetype ~= "" then
+            if not rendered_screen and item.filetype and item.filetype ~= "" then
                 pcall(putils.highlighter, self.state.bufnr, item.filetype)
             end
 
@@ -325,7 +728,32 @@ local function make_session_previewer()
                 api.nvim_buf_add_highlight(self.state.bufnr, namespace, "TelescopePreviewTitle", row, 0, -1)
             end
 
-            if self.state.winid and api.nvim_win_is_valid(self.state.winid) then
+            for _, range in ipairs(color_highlights or {}) do
+                local group = color_group(range.highlight)
+                if group then
+                    api.nvim_buf_add_highlight(
+                        self.state.bufnr,
+                        namespace,
+                        group,
+                        header_count + range.row - 1,
+                        range.start_col - 1,
+                        range.end_col - 1
+                    )
+                end
+            end
+
+            if split_regions then
+                for _, region in ipairs(split_regions) do
+                    api.nvim_buf_add_highlight(
+                        self.state.bufnr,
+                        namespace,
+                        region.active and "NmuxActiveWindow" or "Comment",
+                        header_count + region.row - 1,
+                        region.left - 1,
+                        region.right
+                    )
+                end
+            elseif not rendered_screen and self.state.winid and api.nvim_win_is_valid(self.state.winid) then
                 local preview_row = item.cursor_line - item.preview_first_line + 1
                 local target_row = math.max(1, math.min(#lines, header_count + preview_row))
                 pcall(api.nvim_win_set_cursor, self.state.winid, { target_row, item.cursor_column or 0 })
@@ -399,6 +827,7 @@ local function perform_switch(target, disposition)
         session.reattached = true
         vim.g.nmux_reattached = true
         write_registry()
+        pcall(api.nvim__redraw, { flush = true })
 
         local detached, detach_err = pcall(vim.cmd, "detach")
         if not detached then
@@ -490,6 +919,7 @@ local function open_session_picker()
 
     api.nvim_set_hl(0, "NmuxAttached", { link = "DiagnosticOk", default = true })
     api.nvim_set_hl(0, "NmuxDetached", { link = "SpecialComment", default = true })
+    api.nvim_set_hl(0, "NmuxActiveWindow", { link = "DiagnosticOk", default = true })
 
     local displayer = entry_display.create({
         separator = " ",
