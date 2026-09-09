@@ -2,6 +2,8 @@ local M = {}
 
 local api = vim.api
 
+vim.api.nvim_create_user_command("Q", "detach", {})
+
 local session_dir = vim.fn.stdpath("state") .. "/nmux/sessions"
 local current_socket = vim.v.servername
 local current_pid = vim.fn.getpid()
