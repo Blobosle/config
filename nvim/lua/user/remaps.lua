@@ -93,9 +93,24 @@ vim.keymap.set("n", "<leader>r", function()
 end, { desc = "Show line diagnostics" })
 
 -- Copy-paste functionality
-local mark_oscyank = '<Cmd>lua vim.g.user_oscyank_pending = true<CR>'
-vim.keymap.set('n', '<C-c>', mark_oscyank .. '<Plug>OSCYankOperator', { remap = true, silent = true })
-vim.keymap.set('v', '<C-c>', mark_oscyank .. '<Plug>OSCYankVisual', { remap = true, silent = true })
+vim.keymap.set('n', '<C-c>', '"+y', { silent = true, desc = 'Copy with system clipboard provider' })
+vim.keymap.set('x', '<C-c>', '"+y', { silent = true, desc = 'Copy selection with system clipboard provider' })
+
+vim.api.nvim_create_autocmd('TextYankPost', {
+    group = vim.api.nvim_create_augroup('UserClipboardMessage', { clear = true }),
+    callback = function()
+        local event = vim.v.event
+        if event.operator ~= 'y' or event.regname ~= '+' then
+            return
+        end
+
+        local text = table.concat(event.regcontents or {}, '\n')
+        local show = _G.UserShowTopMessage
+        if type(show) == 'function' then
+            show(string.format('[clipboard] %d characters copied', #text))
+        end
+    end,
+})
 
 -- Cycling between numerous tabs
 vim.api.nvim_set_keymap('n', 'A', ':tabnext<CR>', { noremap = true, silent = true })

@@ -129,6 +129,10 @@ vim.api.nvim_create_autocmd("FileType", {
     pattern = "netrw",
     callback = function(args)
         vim.schedule(function()
+            if not vim.api.nvim_buf_is_valid(args.buf) then
+                return
+            end
+
             pcall(vim.keymap.del, "n", "<S-CR>", { buffer = args.buf })
             pcall(vim.keymap.del, "n", "<M-S-CR>", { buffer = args.buf })
 
