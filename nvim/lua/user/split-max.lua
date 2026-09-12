@@ -1,19 +1,51 @@
+local maximized_tabs = {}
+
+local function refresh_terminal_window(win)
+    vim.schedule(function()
+        if not vim.api.nvim_win_is_valid(win) then
+            return
+        end
+
+        local bufnr = vim.api.nvim_win_get_buf(win)
+        local job_id = vim.b[bufnr].terminal_job_id
+
+        if vim.bo[bufnr].buftype == "terminal" and job_id then
+            pcall(
+                vim.fn.jobresize,
+                job_id,
+                vim.api.nvim_win_get_width(win),
+                vim.api.nvim_win_get_height(win)
+            )
+        end
+
+        vim.cmd("redraw!")
+    end)
+end
+
 vim.keymap.set("n", "M", function()
-    local w = vim.api.nvim_win_get_width(0)
-    local h = vim.api.nvim_win_get_height(0)
+    local tab = vim.api.nvim_get_current_tabpage()
+    local state = maximized_tabs[tab]
 
-    -- Heuristic: if window is already "big", restore; otherwise maximize.
-    -- (This avoids needing global state.)
-    local cols = vim.o.columns
-    local lines = vim.o.lines
+    if state then
+        if vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_buf_is_valid(state.buf) then
+            vim.api.nvim_win_set_buf(state.win, state.buf)
+        end
 
-    local is_maximized = (w > math.floor(cols * 0.8)) and (h > math.floor(lines * 0.8))
-
-    if is_maximized then
-        vim.cmd("wincmd =")      -- restore
-    else
-        vim.cmd("wincmd |")      -- maximize width
-        vim.cmd("wincmd _")      -- maximize height
+        maximized_tabs[tab] = nil
+        vim.cmd("tabclose")
+        refresh_terminal_window(state.win)
+        return
     end
-end, { desc = "Toggle maximize split" })
 
+    local origin_win = vim.api.nvim_get_current_win()
+    local origin_buf = vim.api.nvim_get_current_buf()
+    local placeholder = vim.api.nvim_create_buf(false, true)
+
+    vim.bo[placeholder].bufhidden = "wipe"
+    vim.cmd("tab split")
+    tab = vim.api.nvim_get_current_tabpage()
+    maximized_tabs[tab] = { win = origin_win, buf = origin_buf }
+    vim.t.split_maximized = true
+    vim.api.nvim_win_set_buf(origin_win, placeholder)
+    refresh_terminal_window(vim.api.nvim_get_current_win())
+end, { desc = "Toggle maximize split" })

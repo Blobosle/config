@@ -20,12 +20,22 @@ end
 
 function _G.UserTabLine()
     local parts = {}
+    local maximized = {}
+    local tabpages = vim.api.nvim_list_tabpages()
 
     for tabnr = 1, vim.fn.tabpagenr("$") do
         local is_current = tabnr == vim.fn.tabpagenr()
-        table.insert(parts, "%" .. tabnr .. "T")
-        table.insert(parts, is_current and "%#TabLineSel#" or "%#TabLine#")
-        table.insert(parts, " " .. tab_label(tabnr) .. " ")
+        local label = "%" .. tabnr .. "T"
+            .. (is_current and "%#TabLineSel#" or "%#TabLine#")
+            .. " " .. tab_label(tabnr) .. " "
+        local ok, is_maximized = pcall(vim.api.nvim_tabpage_get_var, tabpages[tabnr], "split_maximized")
+
+        table.insert(ok and is_maximized and maximized or parts, label)
+    end
+
+    if #maximized > 0 then
+        table.insert(parts, "%#TabLineFill#%=")
+        vim.list_extend(parts, maximized)
     end
 
     table.insert(parts, "%#TabLineFill#%T")
