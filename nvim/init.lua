@@ -1,3 +1,6 @@
+vim.opt.runtimepath:prepend(vim.fn.stdpath("config") .. "/cx")
+require("user.cx").setup()
+
 require("config.lazy")
 require("user")
 
@@ -26,3 +29,7 @@ vim.opt.swapfile = false
 vim.opt.signcolumn = "yes"
 vim.opt.termguicolors = true
 vim.opt.splitright = true
+
+if vim.g.neovide then
+    vim.g.neovide_scale_factor = 1.3;
+end
