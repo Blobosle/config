@@ -32,4 +32,8 @@ vim.opt.splitright = true
 
 if vim.g.neovide then
     vim.g.neovide_scale_factor = 1.3;
+    vim.g.neovide_cursor_animation_length = 0
+    vim.g.neovide_cursor_trail_size = 0
+
+    vim.g.neovide_transparency = 0.82
 end
