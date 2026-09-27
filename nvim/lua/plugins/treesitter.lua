@@ -6,6 +6,7 @@ return {
         end,
         event = { "BufReadPost", "BufNewFile" },
         opts = {
+            ensure_installed = { "javascript", "sql", "tsx", "typescript" },
             highlight = {
                 enable = true,
                 disable = { "c" },
