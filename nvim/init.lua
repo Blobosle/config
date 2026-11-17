@@ -1,7 +1,8 @@
+require("config.lazy")
+
 vim.opt.runtimepath:prepend(vim.fn.stdpath("config") .. "/cx")
 require("user.cx").setup()
 
-require("config.lazy")
 require("user")
 
 _G.color = "onedark"
