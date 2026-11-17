@@ -9,6 +9,10 @@ end
 -- Remap 'w' in normal mode
 vim.api.nvim_set_keymap('n', 'w', ':lua CustomForwardWord()<CR>', { noremap = true, silent = true })
 
+vim.keymap.set('n', 'l', function()
+  return vim.v.count > 0 and 'Gzz' or 'l'
+end, { expr = true, desc = 'Jump to line and center with a count' })
+
 -- Yank cursor set
 vim.keymap.set('x', 'y', 'ygv<Esc>', { noremap = true, silent = true })
 

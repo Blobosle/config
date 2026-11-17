@@ -66,51 +66,9 @@ local function current_buffer_dir()
     return vim.fn.getcwd()
 end
 
-local function open_term_vsplit(opts)
-    opts = opts or {}
-
-    local original_win = vim.api.nvim_get_current_win()
-    local original_dir = vim.fn.getcwd()
-    local term_dir = opts.cwd or current_buffer_dir()
-
-    vim.cmd('lcd ' .. vim.fn.fnameescape(term_dir))
-    vim.cmd('vsplit')
-    vim.cmd('term')
-
-    local new_win = vim.api.nvim_get_current_win()
-    local term_bufnr = vim.api.nvim_get_current_buf()
-    local job_id = vim.b[term_bufnr].terminal_job_id
-
-    if opts.cmd and job_id then
-        vim.api.nvim_chan_send(job_id, opts.cmd .. "\n")
-    end
-
-    if vim.api.nvim_win_is_valid(original_win) then
-        vim.api.nvim_set_current_win(original_win)
-        vim.cmd('lcd ' .. vim.fn.fnameescape(original_dir))
-        vim.api.nvim_set_current_win(new_win)
-    end
-
-    vim.api.nvim_create_autocmd("TermClose", {
-        buffer = term_bufnr,
-        once = true,
-        callback = function()
-            if vim.api.nvim_win_is_valid(new_win) then
-                vim.api.nvim_set_current_win(new_win)
-            end
-        end,
-    })
-
-    return term_bufnr, new_win
-end
-
 -- Opening shell split screen
 _G.cd_and_open_term_mod = function()
-    return open_term_vsplit()
-end
-
-_G.run_in_term_vsplit = function(cmd, cwd)
-    return open_term_vsplit({ cmd = cmd, cwd = cwd })
+    return require("user.x").open_terminal(current_buffer_dir())
 end
 
 vim.api.nvim_set_keymap('n', 'Q', ':lua cd_and_open_term()<CR>', { noremap = true, silent = true })
