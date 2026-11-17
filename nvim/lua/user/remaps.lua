@@ -115,6 +115,9 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 -- Cycling between numerous tabs
 vim.api.nvim_set_keymap('n', 'A', ':tabnext<CR>', { noremap = true, silent = true })
 
+-- Keep Tab separate from the Ctrl-I task-menu mapping.
+vim.keymap.set('n', '<Tab>', '<Nop>', { noremap = true, silent = true })
+
 local function shift_tab_indent_blank_line()
   local lnum = vim.fn.line(".")
   local width = vim.fn.cindent(lnum)
