@@ -69,15 +69,18 @@ function M.open_terminal(dir, command)
 
     vim.cmd("lcd " .. vim.fn.fnameescape(dir))
     vim.cmd("vsplit")
-    vim.cmd("term")
+    if command then
+        -- Run before starting the interactive shell, avoiding startup input echo.
+        vim.cmd("enew")
+        vim.fn.jobstart({ vim.o.shell, "-c", command .. "; exec " .. vim.fn.shellescape(vim.o.shell) }, {
+            term = true,
+        })
+    else
+        vim.cmd("term")
+    end
 
     local win = vim.api.nvim_get_current_win()
     local buf = vim.api.nvim_get_current_buf()
-    local job = vim.b[buf].terminal_job_id
-    if command and job then
-        vim.api.nvim_chan_send(job, command .. "\n")
-    end
-
     if vim.api.nvim_win_is_valid(original_win) then
         vim.api.nvim_set_current_win(original_win)
         vim.cmd("lcd " .. vim.fn.fnameescape(original_dir))
@@ -119,7 +122,15 @@ local function target_path()
         return nil
     end
     local dir = vim.b.netrw_curdir or vim.fn.getcwd()
-    return vim.fn.fnamemodify(dir .. "/" .. name, ":p")
+    local path = vim.fn.fnamemodify(dir .. "/" .. name, ":p")
+    -- Strip netrw's executable marker without stripping a real filename's '*'.
+    if name:sub(-1) == "*" and vim.fn.filereadable(path) ~= 1 then
+        local executable = path:sub(1, -2)
+        if vim.fn.executable(executable) == 1 then
+            return executable
+        end
+    end
+    return path
 end
 
 vim.api.nvim_create_autocmd("FileType", {
